@@ -26,7 +26,7 @@ export abstract class BaseAIProvider implements AIProvider {
 
 let cachedProvider: AIProvider
 
-export function createAIProvider(type: string = 'anthropic'): AIProvider {
+export function createAIProvider(type: string = process.env.AI_PROVIDER || 'gemini'): AIProvider {
   if (cachedProvider) {
     return cachedProvider
   }
@@ -36,6 +36,14 @@ export function createAIProvider(type: string = 'anthropic'): AIProvider {
     const { AnthropicProvider } = require('./anthropic')
     const model = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
     cachedProvider = new AnthropicProvider(model)
+    return cachedProvider
+  }
+
+  if (type === 'gemini') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { GeminiProvider } = require('./gemini')
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    cachedProvider = new GeminiProvider(model)
     return cachedProvider
   }
 
