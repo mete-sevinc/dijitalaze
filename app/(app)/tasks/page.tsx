@@ -18,7 +18,7 @@ export default function TasksPage() {
   useEffect(() => {
     async function loadTasks() {
       const result = await getTasks('demo_company')
-      if (result.success && result.data) setTasks(result.data)
+      if (result.success && result.data) setTasks(result.data as Task[])
       setLoading(false)
     }
     loadTasks()

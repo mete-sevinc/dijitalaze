@@ -124,7 +124,7 @@ export class AgentContextBuilder {
       take: 5,
     })
 
-    return reports.map((r: { id: string; type: string; summary?: string; createdAt: Date }) => ({
+    return reports.map((r) => ({
       id: r.id,
       type: r.type,
       summary: r.summary || undefined,
