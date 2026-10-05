@@ -2,13 +2,12 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 model User {
@@ -48,18 +47,18 @@ model Employee {
   title             String
   department        String
   avatar            String?
-  description       String?    @db.Text
-  systemRole        String?    @db.Text
-  responsibilities  String?    @db.Text
-  objectives        String?    @db.Text
-  kpis              String?    @db.Text
-  dailyRoutine      String?    @db.Text
-  weeklyRoutine     String?    @db.Text
-  communicationStyle String?   @db.Text
-  decisionRules     String?    @db.Text
-  escalationRules   String?    @db.Text
-  permissions       String?    @db.Text  // JSON array
-  tools             String?    @db.Text  // JSON array
+  description       String?    
+  systemRole        String?    
+  responsibilities  String?    
+  objectives        String?    
+  kpis              String?    
+  dailyRoutine      String?    
+  weeklyRoutine     String?    
+  communicationStyle String?   
+  decisionRules     String?    
+  escalationRules   String?    
+  permissions       String?      // JSON array
+  tools             String?      // JSON array
   status            EmployeeStatus @default(ACTIVE)
   managerId         String?
   manager           Employee? @relation("ManagerToEmployees", fields: [managerId], references: [id])
@@ -91,7 +90,7 @@ model EmployeeInstruction {
   id        String     @id @default(cuid())
   employeeId String
   employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  content   String     @db.Text
+  content   String     
   priority  InstructionPriority @default(NORMAL)
   active    Boolean    @default(true)
   source    String?
@@ -112,17 +111,16 @@ model EmployeeMemory {
   id        String     @id @default(cuid())
   employeeId String
   employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  content   String     @db.Text
+  content   String     
   type      MemoryType
   importance Int @default(1)
   source    String?
-  tags      String?    @db.Text  // JSON array
+  tags      String?      // JSON array
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
   @@index([employeeId])
   @@index([type])
-  @@fulltext([content, tags])
 }
 
 enum MemoryType {
@@ -156,8 +154,8 @@ model Message {
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role           MessageRole
-  content        String     @db.Text
-  metadata       String?    @db.Text  // JSON
+  content        String     
+  metadata       String?      // JSON
   createdAt      DateTime   @default(now())
 
   @@index([conversationId])
@@ -175,7 +173,7 @@ model Task {
   companyId     String
   company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   title         String
-  description   String?    @db.Text
+  description   String?    
   assigneeId    String?
   assignee      Employee?  @relation("AssignedTasks", fields: [assigneeId], references: [id])
   creatorId     String?
@@ -222,13 +220,13 @@ model EmployeeReport {
   type          ReportType
   periodStart   DateTime
   periodEnd     DateTime
-  summary       String?    @db.Text
-  completedTasks String?   @db.Text  // JSON
-  activeTasks   String?    @db.Text  // JSON
-  blockedTasks  String?    @db.Text  // JSON
-  risks         String?    @db.Text  // JSON
-  recommendations String?  @db.Text  // JSON
-  nextPriorities String?   @db.Text  // JSON
+  summary       String?    
+  completedTasks String?     // JSON
+  activeTasks   String?      // JSON
+  blockedTasks  String?      // JSON
+  risks         String?      // JSON
+  recommendations String?    // JSON
+  nextPriorities String?     // JSON
   createdAt     DateTime   @default(now())
 
   @@index([employeeId])
@@ -246,13 +244,13 @@ model Meeting {
   companyId     String
   company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   title         String
-  agenda        String?    @db.Text
+  agenda        String?    
   status        MeetingStatus @default(SCHEDULED)
   participants  MeetingParticipant[]
   messages      MeetingMessage[]
-  summary       String?    @db.Text
-  decisions     String?    @db.Text  // JSON
-  risks         String?    @db.Text  // JSON
+  summary       String?    
+  decisions     String?      // JSON
+  risks         String?      // JSON
   actionItems   MeetingActionItem[]
   startedAt     DateTime?
   endedAt       DateTime?
@@ -287,7 +285,7 @@ model MeetingMessage {
   meetingId String
   meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   employeeId String?
-  content   String     @db.Text
+  content   String     
   createdAt DateTime   @default(now())
 
   @@index([meetingId])
@@ -297,7 +295,7 @@ model MeetingActionItem {
   id        String     @id @default(cuid())
   meetingId String
   meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  content   String     @db.Text
+  content   String     
   assigneeId String?
   taskId    String?
   status    ActionItemStatus @default(OPEN)
@@ -318,11 +316,11 @@ model CompanyMemory {
   id        String     @id @default(cuid())
   companyId String
   company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  content   String     @db.Text
+  content   String     
   type      String
   importance Int @default(1)
   source    String?
-  tags      String?    @db.Text  // JSON array
+  tags      String?      // JSON array
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -336,8 +334,8 @@ model Approval {
   employeeId String
   employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   action    String
-  payload   String?    @db.Text  // JSON
-  reason    String?    @db.Text
+  payload   String?      // JSON
+  reason    String?    
   status    ApprovalStatus @default(PENDING)
   createdAt DateTime   @default(now())
   resolvedAt DateTime?
@@ -360,7 +358,7 @@ model AuditLog {
   action    String
   entityType String?
   entityId  String?
-  changes   String?    @db.Text  // JSON
+  changes   String?      // JSON
   userId    String?
   createdAt DateTime   @default(now())
 
