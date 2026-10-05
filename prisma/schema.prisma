@@ -1,0 +1,367 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  companyId String?
+  company   Company?   @relation(fields: [companyId], references: [id])
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([companyId])
+}
+
+model Company {
+  id        String     @id @default(cuid())
+  name      String
+  description String?
+  employees Employee[]
+  tasks     Task[]
+  conversations Conversation[]
+  reports   EmployeeReport[]
+  meetings  Meeting[]
+  memory    CompanyMemory[]
+  approvals Approval[]
+  auditLogs AuditLog[]
+  users     User[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Employee {
+  id                String     @id @default(cuid())
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String
+  title             String
+  department        String
+  avatar            String?
+  description       String?
+  systemRole        String?
+  responsibilities  String?
+  objectives        String?
+  kpis              String?
+  dailyRoutine      String?
+  weeklyRoutine     String?
+  communicationStyle String?
+  decisionRules     String?
+  escalationRules   String?
+  permissions       String?  // JSON array
+  tools             String?   // JSON array
+  status            EmployeeStatus @default(ACTIVE)
+  managerId         String?
+  manager           Employee? @relation("ManagerToEmployees", fields: [managerId], references: [id])
+  subordinates      Employee[] @relation("ManagerToEmployees")
+
+  instructions      EmployeeInstruction[]
+  memory            EmployeeMemory[]
+  conversations     Conversation[]
+  assignedTasks     Task[] @relation("AssignedTasks")
+  createdTasks      Task[] @relation("CreatedTasks")
+  reports           EmployeeReport[]
+  meetingParticipants MeetingParticipant[]
+  approvals         Approval[]
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([companyId])
+  @@index([managerId])
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model EmployeeInstruction {
+  id        String     @id @default(cuid())
+  employeeId String
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  content   String
+  priority  InstructionPriority @default(NORMAL)
+  active    Boolean    @default(true)
+  source    String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([employeeId])
+}
+
+enum InstructionPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+model EmployeeMemory {
+  id        String     @id @default(cuid())
+  employeeId String
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  content   String
+  type      MemoryType
+  importance Int @default(1)
+  source    String?
+  tags      String?    // JSON array
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([employeeId])
+  @@index([type])
+}
+
+enum MemoryType {
+  FACT
+  PREFERENCE
+  DECISION
+  CUSTOMER
+  PROCESS
+  LESSON
+  GOAL
+  OTHER
+}
+
+model Conversation {
+  id        String     @id @default(cuid())
+  employeeId String
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title     String?
+  messages  Message[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([employeeId])
+  @@index([companyId])
+}
+
+model Message {
+  id             String     @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  metadata       String?    // JSON
+  createdAt      DateTime   @default(now())
+
+  @@index([conversationId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  companyId     String
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  assigneeId    String?
+  assignee      Employee?  @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  creatorId     String?
+  creator       Employee?  @relation("CreatedTasks", fields: [creatorId], references: [id])
+  status        TaskStatus @default(TODO)
+  priority      TaskPriority @default(MEDIUM)
+  dueDate       DateTime?
+  recurringRule String?
+  source        String?
+  parentTaskId  String?
+  parent        Task?      @relation("SubTasks", fields: [parentTaskId], references: [id])
+  subTasks      Task[]     @relation("SubTasks")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  completedAt   DateTime?
+
+  @@index([companyId])
+  @@index([assigneeId])
+  @@index([creatorId])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model EmployeeReport {
+  id            String     @id @default(cuid())
+  employeeId    String
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type          ReportType
+  periodStart   DateTime
+  periodEnd     DateTime
+  summary       String?
+  completedTasks String?   // JSON
+  activeTasks   String?    // JSON
+  blockedTasks  String?    // JSON
+  risks         String?    // JSON
+  recommendations String?  // JSON
+  nextPriorities String?   // JSON
+  createdAt     DateTime   @default(now())
+
+  @@index([employeeId])
+  @@index([companyId])
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Meeting {
+  id            String     @id @default(cuid())
+  companyId     String
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title         String
+  agenda        String?
+  status        MeetingStatus @default(SCHEDULED)
+  participants  MeetingParticipant[]
+  messages      MeetingMessage[]
+  summary       String?
+  decisions     String?    // JSON
+  risks         String?    // JSON
+  actionItems   MeetingActionItem[]
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([companyId])
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model MeetingParticipant {
+  id        String     @id @default(cuid())
+  meetingId String
+  meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  role      String?    // e.g., "human", "ai"
+  createdAt DateTime   @default(now())
+
+  @@unique([meetingId, employeeId])
+  @@index([meetingId])
+  @@index([employeeId])
+}
+
+model MeetingMessage {
+  id        String     @id @default(cuid())
+  meetingId String
+  meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  employeeId String?
+  content   String
+  createdAt DateTime   @default(now())
+
+  @@index([meetingId])
+}
+
+model MeetingActionItem {
+  id        String     @id @default(cuid())
+  meetingId String
+  meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  content   String
+  assigneeId String?
+  taskId    String?
+  status    ActionItemStatus @default(OPEN)
+  createdAt DateTime   @default(now())
+  completedAt DateTime?
+
+  @@index([meetingId])
+}
+
+enum ActionItemStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model CompanyMemory {
+  id        String     @id @default(cuid())
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  content   String
+  type      String
+  importance Int @default(1)
+  source    String?
+  tags      String?    // JSON array
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([companyId])
+}
+
+model Approval {
+  id        String     @id @default(cuid())
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  action    String
+  payload   String?    // JSON
+  reason    String?
+  status    ApprovalStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  resolvedAt DateTime?
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  action    String
+  entityType String?
+  entityId  String?
+  changes   String?    // JSON
+  userId    String?
+  createdAt DateTime   @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+}

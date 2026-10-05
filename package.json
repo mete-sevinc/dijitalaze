@@ -6,12 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^18.0.5",
     "next": "16.3.8",
+    "postgresql": "^0.0.1",
+    "prisma": "^8.0.0-rc.19",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
