@@ -78,7 +78,7 @@ export class AgentContextBuilder {
       take: 20,
     })
 
-    return memories.map((m: { content: string; type: string; importance: number; source?: string; tags?: string; createdAt: Date }) => ({
+    return memories.map((m) => ({
       content: m.content,
       type: m.type,
       importance: m.importance,
@@ -106,7 +106,7 @@ export class AgentContextBuilder {
       },
     })
 
-    return tasks.map((t: { id: string; title: string; description?: string; status: string; priority: string; dueDate?: Date; assignee?: { name: string } }) => ({
+    return tasks.map((t) => ({
       id: t.id,
       title: t.title,
       description: t.description || undefined,

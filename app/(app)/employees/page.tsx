@@ -9,7 +9,7 @@ interface Employee {
   name: string
   title: string
   department: string
-  avatar?: string
+  avatar?: string | null
   status: string
   assignedTasks: Array<{ id: string; title: string }>
 }

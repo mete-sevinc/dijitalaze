@@ -9,7 +9,7 @@ export async function getTasks(companyId: string, filter?: { status?: string; as
     const tasks = await prisma.task.findMany({
       where: {
         companyId,
-        status: filter?.status ? { equals: filter.status } : undefined,
+        status: filter?.status ? (filter.status as import('@prisma/client').TaskStatus) : undefined,
         assigneeId: filter?.assigneeId,
       },
       include: {
