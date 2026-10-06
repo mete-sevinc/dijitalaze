@@ -16,8 +16,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavLink href="/assistant" label="Asistanım" icon="🧠" />
           <NavLink href="/dashboard" label="Kontrol Paneli" icon="📊" />
+          <NavLink href="/assistant" label="Asistanım" icon="🧠" />
           <NavLink href="/employees" label="Çalışanlar" icon="👥" />
           <NavLink href="/tasks" label="Görevler" icon="✅" />
           <NavLink href="/meetings" label="Toplantılar" icon="🤝" />

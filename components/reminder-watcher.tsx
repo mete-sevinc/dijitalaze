@@ -40,7 +40,7 @@ export function ReminderWatcher() {
 
   if (items.length === 0) return null
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite">
+    <div className="fixed top-4 right-4 z-50 space-y-2" role="status" aria-live="polite">
       {items.map((r) => (
         <div key={r.id} className="bg-amber-100 border border-amber-300 text-amber-900 rounded shadow px-4 py-3 flex items-start gap-3 max-w-sm">
           <span>⏰</span>
