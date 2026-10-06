@@ -146,6 +146,7 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
   }
 }
 
+const REQUEST_TIMEOUT_MS = 20_000
 const RETRYABLE = new Set([429, 500, 503, 504])
 const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']
 
@@ -155,11 +156,18 @@ async function callGemini(apiKey: string, preferred: string | undefined, body: u
   let last = 'Gemini yanıt vermedi'
   for (const model of models) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      const res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(body),
-      })
+      let res: Response
+      try {
+        res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        })
+      } catch {
+        last = `Gemini zaman aşımı (${model})`
+        break
+      }
       if (res.ok) return res
       last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
       if (res.status === 404) break
