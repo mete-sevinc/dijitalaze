@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Company OS",
-  description: "Yapay zeka çalışanlarını yönetim sistemi",
+  title: "AZE Dijital",
+  description: "AZE'nin Dijital Gezegeni",
 };
 
 export default function RootLayout({

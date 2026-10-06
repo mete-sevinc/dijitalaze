@@ -220,7 +220,7 @@ export class AgentRuntime {
       },
     })
 
-    const systemPrompt = `You are the AI Company Assistant for ${company.name}.
+    const systemPrompt = `You are the AZE Dijital assistant for ${company.name}.
 Generate a daily briefing in Turkish that summarizes the company status.
 
 Company Stats:

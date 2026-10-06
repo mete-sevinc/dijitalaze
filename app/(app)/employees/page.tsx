@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getEmployees } from '@/app/actions/employees'
@@ -38,7 +37,7 @@ export default function EmployeesPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-4xl font-bold text-slate-900">Çalışanlar</h1>
-          <p className="text-slate-600 mt-2">AI şirketi çalışanlarını yönet</p>
+          <p className="text-slate-600 mt-2">AZE Otomasyon dijital çalışanlarını yönet</p>
         </div>
         <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           ➕ Yeni Çalışan

@@ -1,6 +1,6 @@
-# AI Company OS
+# AZE Dijital
 
-Kurumsal AI çalışanlarını yönetim sistemi. Next.js, Prisma, PostgreSQL ve Anthropic Claude API kullanılarak geliştirilmiş.
+AZE'nin Dijital Gezegeni: AZE Otomasyon'u dijital asistanlarla yöneten sistem. Next.js, Prisma, PostgreSQL ve Anthropic Claude API ile geliştirildi.
 
 ## Özellikler
 
