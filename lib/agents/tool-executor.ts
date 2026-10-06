@@ -84,6 +84,7 @@ async function createTask(context: AgentContext, input: Record<string, unknown>)
       status: 'TODO',
     },
   })
+
   await prisma.auditLog.create({
     data: {
       companyId: context.employeeId.split('_')[0],
@@ -100,8 +101,19 @@ async function createTask(context: AgentContext, input: Record<string, unknown>)
 async function updateTask(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = updateTaskInputSchema.parse(input)
   const taskId = input.taskId as string
-  const task = await prisma.task.findUnique({ where: { id: taskId } })
-  if (!task) return { toolName: 'update_task', result: null, error: 'Task not found' }
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+  })
+
+  if (!task) {
+    return {
+      toolName: 'update_task',
+      result: null,
+      error: 'Task not found',
+    }
+  }
+
   const canUpdate =
     context.employeeId === task.assigneeId ||
     context.permissions.includes('CAN_UPDATE_TASKS') ||
@@ -115,6 +127,7 @@ async function updateTask(context: AgentContext, input: Record<string, unknown>)
       description: parsed.description,
     },
   })
+
   await prisma.auditLog.create({
     data: {
       companyId: task.companyId,
@@ -171,27 +184,60 @@ async function addEmployeeMemory(context: AgentContext, input: Record<string, un
 async function getCompanySummary(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = getCompanySummaryInputSchema.parse(input)
   const companyId = context.employeeId.split('_')[0]
+
   const company = await prisma.company.findUnique({ where: { id: companyId } })
   const employeeCount = await prisma.employee.count({ where: { companyId } })
-  const taskStats = await prisma.task.groupBy({ by: ['status'], where: { companyId }, _count: true })
+  const taskStats = await prisma.task.groupBy({
+    by: ['status'],
+    where: { companyId },
+    _count: true,
+  })
+
   const summary: { company?: string; totalEmployees: number; taskStats: Record<string, number>; risks?: string[] } = {
     company: company?.name,
     totalEmployees: employeeCount,
     taskStats: taskStats.reduce((acc: Record<string, number>, s) => ({ ...acc, [s.status]: s._count }), {}),
   }
   if (parsed.includeRisks) {
-    const risks = await prisma.task.findMany({ where: { companyId, status: 'BLOCKED' }, take: 5 })
+    const risks = await prisma.task.findMany({
+      where: { companyId, status: 'BLOCKED' },
+      take: 5,
+    })
     summary.risks = risks.map((r) => r.title)
   }
-  return { toolName: 'get_company_summary', result: summary }
+
+  return {
+    toolName: 'get_company_summary',
+    result: summary,
+  }
 }
 
 async function getEmployeeReport(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const employeeId = input.employeeId as string
   const type = input.type as ReportType
-  const report = await prisma.employeeReport.findFirst({ where: { employeeId, type }, orderBy: { createdAt: 'desc' } })
-  if (!report) return { toolName: 'get_employee_report', result: null, error: 'No report found' }
-  return { toolName: 'get_employee_report', result: { id: report.id, type: report.type, summary: report.summary, createdAt: report.createdAt } }
+
+  const report = await prisma.employeeReport.findFirst({
+    where: { employeeId, type },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (!report) {
+    return {
+      toolName: 'get_employee_report',
+      result: null,
+      error: 'No report found',
+    }
+  }
+
+  return {
+    toolName: 'get_employee_report',
+    result: {
+      id: report.id,
+      type: report.type,
+      summary: report.summary,
+      createdAt: report.createdAt,
+    },
+  }
 }
 
 async function createMeetingAction(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
@@ -201,6 +247,7 @@ async function createMeetingAction(context: AgentContext, input: Record<string, 
   const actionItem = await prisma.meetingActionItem.create({
     data: { meetingId, content, assigneeId, status: assigneeId ? 'ASSIGNED' : 'OPEN' },
   })
+
   if (assigneeId) {
     const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } })
     if (meeting) {
