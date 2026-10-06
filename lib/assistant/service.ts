@@ -219,10 +219,12 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
   }
 
   reply = reply || 'Bir yanıt üretemedim, tekrar dener misin?'
+  // Aynı createdAt sıralamayı belirsiz yapmasın diye yanıt 1 ms sonraya yazılır.
+  const now = Date.now()
   await prisma.assistantMessage.createMany({
     data: [
-      { ownerEmail: owner, role: 'user', content: userText },
-      { ownerEmail: owner, role: 'assistant', content: reply },
+      { ownerEmail: owner, role: 'user', content: userText, createdAt: new Date(now) },
+      { ownerEmail: owner, role: 'assistant', content: reply, createdAt: new Date(now + 1) },
     ],
   })
   return reply
