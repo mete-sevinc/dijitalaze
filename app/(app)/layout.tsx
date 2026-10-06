@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { ReminderWatcher } from '@/components/reminder-watcher'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <NavLink href="/assistant" label="Asistanım" icon="🧠" />
           <NavLink href="/dashboard" label="Kontrol Paneli" icon="📊" />
           <NavLink href="/employees" label="Çalışanlar" icon="👥" />
           <NavLink href="/tasks" label="Görevler" icon="✅" />
@@ -44,6 +46,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         <div className="flex-1 overflow-auto">{children}</div>
+        <ReminderWatcher />
       </main>
     </div>
   )

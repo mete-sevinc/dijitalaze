@@ -365,3 +365,37 @@ model AuditLog {
   @@index([companyId])
   @@index([createdAt])
 }
+
+// Kişisel asistan: kullanıcı e-postasına bağlı, şirket verisinden bağımsız.
+model AssistantTask {
+  id         String    @id @default(cuid())
+  ownerEmail String
+  title      String
+  dueAt      DateTime?
+  remindAt   DateTime?
+  remindedAt DateTime?
+  doneAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([ownerEmail, doneAt])
+  @@index([ownerEmail, remindAt])
+}
+
+model AssistantNote {
+  id         String   @id @default(cuid())
+  ownerEmail String
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([ownerEmail, createdAt])
+}
+
+model AssistantMessage {
+  id         String   @id @default(cuid())
+  ownerEmail String
+  role       String // "user" | "assistant"
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([ownerEmail, createdAt])
+}
