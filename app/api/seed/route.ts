@@ -1,19 +1,15 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-
 export const dynamic = 'force-dynamic'
 
-// One-time seed endpoint
 export async function POST() {
+  const { prisma } = await import('@/lib/db')
+
   try {
-    // Check if already seeded
     const existing = await prisma.company.findUnique({ where: { id: 'demo_company' } })
     if (existing) {
       const count = await prisma.employee.count({ where: { companyId: 'demo_company' } })
-      return NextResponse.json({ success: true, message: 'Already seeded', employees: count })
+      return Response.json({ success: true, message: 'Already seeded', employees: count })
     }
 
-    // Create company with fixed ID
     await prisma.company.create({
       data: {
         id: 'demo_company',
@@ -22,7 +18,6 @@ export async function POST() {
       },
     })
 
-    // Create employees
     const ceo = await prisma.employee.create({
       data: {
         companyId: 'demo_company',
@@ -31,9 +26,9 @@ export async function POST() {
         department: 'Yönetim',
         avatar: '👨‍💼',
         status: 'ACTIVE',
-        personality: 'Stratejik düşünür, liderlik odaklı, veri driven karar verici',
-        expertise: JSON.stringify(['Strateji', 'Liderlik', 'İş Geliştirme', 'Finansal Yönetim']),
-        systemPrompt: 'Sen Demo Teknoloji şirketinin CEO\'susun. Stratejik kararlar alır, şirketi yönetirsin.',
+        personality: 'Stratejik düşünür, liderlik odaklı',
+        expertise: JSON.stringify(['Strateji', 'Liderlik', 'İş Geliştirme']),
+        systemPrompt: "Sen Demo Teknoloji şirketinin CEO'susun. Stratejik kararlar alır, şirketi yönetirsin.",
       },
     })
 
@@ -45,9 +40,9 @@ export async function POST() {
         department: 'Teknoloji',
         avatar: '👩‍💻',
         status: 'ACTIVE',
-        personality: 'Teknik derinlik, inovasyon odaklı, problem çözücü',
-        expertise: JSON.stringify(['Yazılım Mimarisi', 'Cloud', 'AI/ML', 'DevOps']),
-        systemPrompt: 'Sen Demo Teknoloji şirketinin CTO\'susun. Teknoloji kararları alır, teknik ekibi yönetirsin.',
+        personality: 'Teknik derinlik, inovasyon odaklı',
+        expertise: JSON.stringify(['Yazılım Mimarisi', 'Cloud', 'AI/ML']),
+        systemPrompt: "Sen Demo Teknoloji şirketinin CTO'susun. Teknoloji kararları alır.",
       },
     })
 
@@ -59,7 +54,7 @@ export async function POST() {
         department: 'Ürün',
         avatar: '📊',
         status: 'ACTIVE',
-        personality: 'Kullanıcı odaklı, analitik, çevik metodoloji uzmanı',
+        personality: 'Kullanıcı odaklı, analitik',
         expertise: JSON.stringify(['Ürün Yönetimi', 'UX/UI', 'Agile']),
         systemPrompt: 'Sen Demo Teknoloji şirketinin Ürün Müdürüsün.',
       },
@@ -74,12 +69,11 @@ export async function POST() {
         avatar: '🤝',
         status: 'ACTIVE',
         personality: 'Empati odaklı, organizasyon geliştirici',
-        expertise: JSON.stringify(['İşe Alım', 'Performans Yönetimi', 'Eğitim']),
+        expertise: JSON.stringify(['İşe Alım', 'Performans Yönetimi']),
         systemPrompt: 'Sen Demo Teknoloji şirketinin İK Müdürüsün.',
       },
     })
 
-    // Add tasks
     await prisma.task.createMany({
       data: [
         {
@@ -98,7 +92,6 @@ export async function POST() {
           creatorId: ceo.id,
           status: 'TODO',
           priority: 'URGENT',
-          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         },
         {
           companyId: 'demo_company',
@@ -119,13 +112,13 @@ export async function POST() {
       ],
     })
 
-    return NextResponse.json({
+    return Response.json({
       success: true,
       message: 'Seed tamamlandı',
       employees: [ceo.name, cto.name, pm.name, hr.name],
     })
   } catch (error) {
-    return NextResponse.json(
+    return Response.json(
       { success: false, error: error instanceof Error ? error.message : 'Seed hatası' },
       { status: 500 }
     )
