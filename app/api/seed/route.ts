@@ -1,6 +1,17 @@
+import { timingSafeEqual } from 'node:crypto'
+
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+function authorized(req: Request) {
+  const secret = process.env.SEED_SECRET
+  if (!secret) return false
+  const given = Buffer.from(req.headers.get('authorization') ?? '')
+  const expected = Buffer.from(`Bearer ${secret}`)
+  return given.length === expected.length && timingSafeEqual(given, expected)
+}
+
+export async function POST(req: Request) {
+  if (!authorized(req)) return Response.json({ error: 'unauthorized' }, { status: 401 })
   const { prisma } = await import('@/lib/db')
 
   try {
@@ -26,9 +37,9 @@ export async function POST() {
         department: 'Yönetim',
         avatar: '👨‍💼',
         status: 'ACTIVE',
-        personality: 'Stratejik düşünür, liderlik odaklı',
-        expertise: JSON.stringify(['Strateji', 'Liderlik', 'İş Geliştirme']),
-        systemPrompt: "Sen Demo Teknoloji şirketinin CEO'susun. Stratejik kararlar alır, şirketi yönetirsin.",
+        communicationStyle: 'Stratejik düşünür, liderlik odaklı',
+        responsibilities: JSON.stringify(['Strateji', 'Liderlik', 'İş Geliştirme']),
+        systemRole: "Sen Demo Teknoloji şirketinin CEO'susun. Stratejik kararlar alır, şirketi yönetirsin.",
       },
     })
 
@@ -40,9 +51,9 @@ export async function POST() {
         department: 'Teknoloji',
         avatar: '👩‍💻',
         status: 'ACTIVE',
-        personality: 'Teknik derinlik, inovasyon odaklı',
-        expertise: JSON.stringify(['Yazılım Mimarisi', 'Cloud', 'AI/ML']),
-        systemPrompt: "Sen Demo Teknoloji şirketinin CTO'susun. Teknoloji kararları alır.",
+        communicationStyle: 'Teknik derinlik, inovasyon odaklı',
+        responsibilities: JSON.stringify(['Yazılım Mimarisi', 'Cloud', 'AI/ML']),
+        systemRole: "Sen Demo Teknoloji şirketinin CTO'susun. Teknoloji kararları alır.",
       },
     })
 
@@ -54,9 +65,9 @@ export async function POST() {
         department: 'Ürün',
         avatar: '📊',
         status: 'ACTIVE',
-        personality: 'Kullanıcı odaklı, analitik',
-        expertise: JSON.stringify(['Ürün Yönetimi', 'UX/UI', 'Agile']),
-        systemPrompt: 'Sen Demo Teknoloji şirketinin Ürün Müdürüsün.',
+        communicationStyle: 'Kullanıcı odaklı, analitik',
+        responsibilities: JSON.stringify(['Ürün Yönetimi', 'UX/UI', 'Agile']),
+        systemRole: 'Sen Demo Teknoloji şirketinin Ürün Müdürüsün.',
       },
     })
 
@@ -68,9 +79,9 @@ export async function POST() {
         department: 'İnsan Kaynakları',
         avatar: '🤝',
         status: 'ACTIVE',
-        personality: 'Empati odaklı, organizasyon geliştirici',
-        expertise: JSON.stringify(['İşe Alım', 'Performans Yönetimi']),
-        systemPrompt: 'Sen Demo Teknoloji şirketinin İK Müdürüsün.',
+        communicationStyle: 'Empati odaklı, organizasyon geliştirici',
+        responsibilities: JSON.stringify(['İşe Alım', 'Performans Yönetimi']),
+        systemRole: 'Sen Demo Teknoloji şirketinin İK Müdürüsün.',
       },
     })
 
@@ -119,11 +130,7 @@ export async function POST() {
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    const stack = error instanceof Error ? error.stack : ''
-    console.error('SEED ERROR:', msg, stack)
-    return Response.json(
-      { success: false, error: msg, stack },
-      { status: 500 }
-    )
+    console.error('SEED ERROR:', msg, error instanceof Error ? error.stack : '')
+    return Response.json({ success: false, error: 'seed failed' }, { status: 500 })
   }
 }
