@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { ReactNode } from 'react'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -35,6 +36,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center">
           <div />
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <button className="text-sm px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded">
               Profil
             </button>
