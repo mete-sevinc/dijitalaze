@@ -149,7 +149,7 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
 export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
 
   const past = await prisma.assistantMessage.findMany({
     where: { ownerEmail: owner },
