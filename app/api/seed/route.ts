@@ -118,8 +118,11 @@ export async function POST() {
       employees: [ceo.name, cto.name, pm.name, hr.name],
     })
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack : ''
+    console.error('SEED ERROR:', msg, stack)
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : 'Seed hatası' },
+      { success: false, error: msg, stack },
       { status: 500 }
     )
   }

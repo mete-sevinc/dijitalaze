@@ -34,7 +34,11 @@ export async function executeToolAction(
       case 'create_meeting_action':
         return await createMeetingAction(context, input)
       default:
-        return { toolName, result: null, error: `Unknown tool: ${toolName}` }
+        return {
+          toolName,
+          result: null,
+          error: `Unknown tool: ${toolName}`,
+        }
     }
   } catch (error) {
     return {
@@ -47,6 +51,7 @@ export async function executeToolAction(
 
 async function listTasks(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = listTasksInputSchema.parse(input)
+
   const tasks = await prisma.task.findMany({
     where: {
       assigneeId: context.employeeId,
@@ -55,6 +60,7 @@ async function listTasks(context: AgentContext, input: Record<string, unknown>):
     orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
     take: parsed.limit || 10,
   })
+
   return {
     toolName: 'list_tasks',
     result: tasks.map((t) => ({
@@ -69,9 +75,15 @@ async function listTasks(context: AgentContext, input: Record<string, unknown>):
 
 async function createTask(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   if (!context.permissions.includes('CAN_CREATE_TASKS') && !context.permissions.includes('ALL')) {
-    return { toolName: 'create_task', result: null, error: 'Permission denied: CAN_CREATE_TASKS required' }
+    return {
+      toolName: 'create_task',
+      result: null,
+      error: 'Permission denied: CAN_CREATE_TASKS required',
+    }
   }
+
   const parsed = createTaskInputSchema.parse(input)
+
   const task = await prisma.task.create({
     data: {
       companyId: context.employeeId.split('_')[0],
@@ -95,7 +107,15 @@ async function createTask(context: AgentContext, input: Record<string, unknown>)
       changes: JSON.stringify(parsed),
     },
   })
-  return { toolName: 'create_task', result: { id: task.id, title: task.title, status: task.status } }
+
+  return {
+    toolName: 'create_task',
+    result: {
+      id: task.id,
+      title: task.title,
+      status: task.status,
+    },
+  }
 }
 
 async function updateTask(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
@@ -118,7 +138,15 @@ async function updateTask(context: AgentContext, input: Record<string, unknown>)
     context.employeeId === task.assigneeId ||
     context.permissions.includes('CAN_UPDATE_TASKS') ||
     context.permissions.includes('ALL')
-  if (!canUpdate) return { toolName: 'update_task', result: null, error: 'Permission denied' }
+
+  if (!canUpdate) {
+    return {
+      toolName: 'update_task',
+      result: null,
+      error: 'Permission denied: Can only update own tasks or need CAN_UPDATE_TASKS',
+    }
+  }
+
   const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -138,11 +166,20 @@ async function updateTask(context: AgentContext, input: Record<string, unknown>)
       changes: JSON.stringify(parsed),
     },
   })
-  return { toolName: 'update_task', result: { id: updatedTask.id, status: updatedTask.status, priority: updatedTask.priority } }
+
+  return {
+    toolName: 'update_task',
+    result: {
+      id: updatedTask.id,
+      status: updatedTask.status,
+      priority: updatedTask.priority,
+    },
+  }
 }
 
 async function searchEmployeeMemory(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = searchMemoryInputSchema.parse(input)
+
   const memories = await prisma.employeeMemory.findMany({
     where: {
       employeeId: context.employeeId,
@@ -154,6 +191,7 @@ async function searchEmployeeMemory(context: AgentContext, input: Record<string,
     orderBy: { importance: 'desc' },
     take: parsed.limit || 10,
   })
+
   return {
     toolName: 'search_employee_memory',
     result: memories.map((m) => ({
@@ -168,6 +206,7 @@ async function searchEmployeeMemory(context: AgentContext, input: Record<string,
 
 async function addEmployeeMemory(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = addMemoryInputSchema.parse(input)
+
   const memory = await prisma.employeeMemory.create({
     data: {
       employeeId: context.employeeId,
@@ -178,7 +217,15 @@ async function addEmployeeMemory(context: AgentContext, input: Record<string, un
       source: 'AI_GENERATED',
     },
   })
-  return { toolName: 'add_employee_memory', result: { id: memory.id, content: memory.content, type: memory.type } }
+
+  return {
+    toolName: 'add_employee_memory',
+    result: {
+      id: memory.id,
+      content: memory.content,
+      type: memory.type,
+    },
+  }
 }
 
 async function getCompanySummary(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
@@ -198,6 +245,7 @@ async function getCompanySummary(context: AgentContext, input: Record<string, un
     totalEmployees: employeeCount,
     taskStats: taskStats.reduce((acc: Record<string, number>, s) => ({ ...acc, [s.status]: s._count }), {}),
   }
+
   if (parsed.includeRisks) {
     const risks = await prisma.task.findMany({
       where: { companyId, status: 'BLOCKED' },
@@ -244,8 +292,14 @@ async function createMeetingAction(context: AgentContext, input: Record<string, 
   const meetingId = input.meetingId as string
   const content = input.content as string
   const assigneeId = input.assigneeId as string | undefined
+
   const actionItem = await prisma.meetingActionItem.create({
-    data: { meetingId, content, assigneeId, status: assigneeId ? 'ASSIGNED' : 'OPEN' },
+    data: {
+      meetingId,
+      content,
+      assigneeId,
+      status: assigneeId ? 'ASSIGNED' : 'OPEN',
+    },
   })
 
   if (assigneeId) {
@@ -264,5 +318,13 @@ async function createMeetingAction(context: AgentContext, input: Record<string, 
       })
     }
   }
-  return { toolName: 'create_meeting_action', result: { id: actionItem.id, content: actionItem.content, status: actionItem.status } }
+
+  return {
+    toolName: 'create_meeting_action',
+    result: {
+      id: actionItem.id,
+      content: actionItem.content,
+      status: actionItem.status,
+    },
+  }
 }
