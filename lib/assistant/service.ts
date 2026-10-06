@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 
@@ -17,17 +16,19 @@ const completeTaskInput = z.object({ id: z.string().min(1) })
 const addNoteInput = z.object({ content: z.string().min(1).max(5000) })
 const listNotesInput = z.object({ query: z.string().max(200).optional() })
 
-const tools: Anthropic.Tool[] = [
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta'
+
+const functionDeclarations = [
   {
     name: 'add_task',
     description:
       'İş/görev veya hatırlatma ekler. Kullanıcı bir zamanda hatırlatılmak istiyorsa remind_at ver. Son tarih varsa due_at ver.',
-    input_schema: {
-      type: 'object',
+    parameters: {
+      type: 'OBJECT',
       properties: {
-        title: { type: 'string' },
-        due_at: { type: 'string', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
-        remind_at: { type: 'string', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
+        title: { type: 'STRING' },
+        due_at: { type: 'STRING', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
+        remind_at: { type: 'STRING', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
       },
       required: ['title'],
     },
@@ -35,24 +36,34 @@ const tools: Anthropic.Tool[] = [
   {
     name: 'list_tasks',
     description: 'Görevleri ve hatırlatmaları listeler. Varsayılan: sadece tamamlanmamışlar.',
-    input_schema: { type: 'object', properties: { include_done: { type: 'boolean' } } },
+    parameters: { type: 'OBJECT', properties: { include_done: { type: 'BOOLEAN' } } },
   },
   {
     name: 'complete_task',
     description: 'Görevi tamamlandı olarak işaretler. id list_tasks sonucundan alınır.',
-    input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
   },
   {
     name: 'add_note',
     description: 'Kullanıcının notunu kaydeder.',
-    input_schema: { type: 'object', properties: { content: { type: 'string' } }, required: ['content'] },
+    parameters: { type: 'OBJECT', properties: { content: { type: 'STRING' } }, required: ['content'] },
   },
   {
     name: 'list_notes',
     description: 'Notları listeler; query verilirse içinde arar. En yeni 20 not döner.',
-    input_schema: { type: 'object', properties: { query: { type: 'string' } } },
+    parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' } } },
   },
 ]
+
+interface GeminiPart {
+  text?: string
+  functionCall?: { name: string; args?: Record<string, unknown> }
+  functionResponse?: { name: string; response: Record<string, unknown> }
+}
+interface GeminiContent {
+  role: 'user' | 'model'
+  parts: GeminiPart[]
+}
 
 function istanbulNow(): string {
   const d = new Date()
@@ -136,51 +147,56 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
 }
 
 export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5'
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
   const past = await prisma.assistantMessage.findMany({
     where: { ownerEmail: owner },
     orderBy: { createdAt: 'desc' },
     take: HISTORY_LIMIT,
   })
-  const messages: Anthropic.MessageParam[] = past
-    .reverse()
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-  messages.push({ role: 'user', content: userText })
+  const contents: GeminiContent[] = past.reverse().map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+  contents.push({ role: 'user', parts: [{ text: userText }] })
 
   let reply = ''
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await client.messages.create({
-      model,
-      max_tokens: 1500,
-      system: systemPrompt(),
-      tools,
-      messages,
+    const res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt() }] },
+        contents,
+        tools: [{ functionDeclarations }],
+        generationConfig: { maxOutputTokens: 1500 },
+      }),
     })
-    reply = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
-    if (res.stop_reason !== 'tool_use') break
+    if (!res.ok) throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 300)}`)
+    const data = await res.json()
+    const content: GeminiContent | undefined = data.candidates?.[0]?.content
+    const parts: GeminiPart[] = content?.parts ?? []
+    reply = parts.map((p) => p.text ?? '').join('')
 
-    messages.push({ role: 'assistant', content: res.content })
-    const results: Anthropic.ToolResultBlockParam[] = []
-    for (const block of res.content) {
-      if (block.type !== 'tool_use') continue
+    const calls = parts.filter((p) => p.functionCall)
+    if (calls.length === 0) break
+
+    contents.push({ role: 'model', parts })
+    const responses: GeminiPart[] = []
+    for (const p of calls) {
+      const { name, args } = p.functionCall!
       try {
-        const out = await runTool(owner, block.name, block.input)
-        results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(out) })
+        const out = await runTool(owner, name, args ?? {})
+        responses.push({ functionResponse: { name, response: { result: out } } })
       } catch (e) {
-        results.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          is_error: true,
-          content: e instanceof Error ? e.message : 'Araç hatası',
+        responses.push({
+          functionResponse: { name, response: { error: e instanceof Error ? e.message : 'Araç hatası' } },
         })
       }
     }
-    messages.push({ role: 'user', content: results })
+    contents.push({ role: 'user', parts: responses })
   }
 
   reply = reply || 'Bir yanıt üretemedim, tekrar dener misin?'
