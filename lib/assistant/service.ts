@@ -147,27 +147,33 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
 }
 
 const RETRYABLE = new Set([429, 500, 503, 504])
+const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']
 
-// Gemini geçici yoğunlukta 503/429 döner; kısa aralıklarla birkaç kez dener.
-async function callGemini(apiKey: string, model: string, body: unknown): Promise<Response> {
-  let res: Response
-  for (let attempt = 0; attempt < 4; attempt++) {
-    res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body),
-    })
-    if (res.ok || !RETRYABLE.has(res.status)) break
-    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+// Model yoğun (503/429) ya da bulunamazsa (404) sıradaki modele geçer.
+async function callGemini(apiKey: string, preferred: string | undefined, body: unknown): Promise<Response> {
+  const models = [...new Set([preferred, ...FALLBACK_MODELS].filter((m): m is string => !!m))]
+  let last = 'Gemini yanıt vermedi'
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) return res
+      last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
+      if (res.status === 404) break
+      if (!RETRYABLE.has(res.status)) throw new Error(last)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
   }
-  if (!res!.ok) throw new Error(`Gemini API ${res!.status}: ${(await res!.text()).slice(0, 300)}`)
-  return res!
+  throw new Error(last)
 }
 
 export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
+  const model = process.env.GEMINI_MODEL
 
   const past = await prisma.assistantMessage.findMany({
     where: { ownerEmail: owner },
