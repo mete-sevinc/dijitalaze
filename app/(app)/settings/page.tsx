@@ -72,7 +72,7 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAll() {
-    if (!window.confirm('Tüm çalışanlar, konuşmalar, görevler, toplantılar ve raporlar kalıcı olarak silinecek. Emin misiniz?')) return
+    if (!window.confirm(`${name}: tüm çalışanlar, konuşmalar, görevler, toplantılar ve raporlar kalıcı olarak silinecek. Emin misiniz?`)) return
     if (await run(() => deleteAllData(confirmText), 'Tüm veriler silindi')) setConfirmText('')
   }
 
@@ -133,7 +133,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-lg shadow p-6 space-y-4 border border-red-300">
         <h2 className="text-xl font-semibold text-red-700">Tehlikeli Bölge</h2>
         <p className="text-sm text-slate-600">
-          Tüm çalışanları, konuşmaları, görevleri, toplantıları, raporları ve hafızayı kalıcı olarak siler. Geri alınamaz. Devam etmek için <b>SİL</b> yazın.
+          <b>{name}</b> firmasının tüm çalışanlarını, konuşmalarını, görevlerini, toplantılarını, raporlarını ve hafızasını kalıcı olarak siler. Geri alınamaz. Devam etmek için <b>SİL</b> yazın.
         </p>
         <div className="flex gap-2">
           <input className={inputCls} value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="SİL" aria-label="Onay metni" />
