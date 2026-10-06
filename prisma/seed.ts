@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
 
 const EmployeeStatus = { ACTIVE: 'ACTIVE', PAUSED: 'PAUSED', ARCHIVED: 'ARCHIVED' } as const
 const InstructionPriority = { LOW: 'LOW', NORMAL: 'NORMAL', HIGH: 'HIGH', CRITICAL: 'CRITICAL' } as const
@@ -6,7 +7,9 @@ const MemoryType = { FACT: 'FACT', PREFERENCE: 'PREFERENCE', DECISION: 'DECISION
 const TaskStatus = { TODO: 'TODO', IN_PROGRESS: 'IN_PROGRESS', BLOCKED: 'BLOCKED', REVIEW: 'REVIEW', DONE: 'DONE', CANCELLED: 'CANCELLED' } as const
 const TaskPriority = { LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH', URGENT: 'URGENT' } as const
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL! }),
+})
 
 async function main() {
   // Clean existing data
@@ -30,6 +33,7 @@ async function main() {
   // Create company
   const company = await prisma.company.create({
     data: {
+      id: "demo_company",
       name: "Demo Teknoloji A.Ş.",
       description: "Kurumsal yazılım çözümleri sağlayan teknoloji firması"
     }
