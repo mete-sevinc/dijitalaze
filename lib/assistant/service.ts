@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 
 const MAX_TOOL_ROUNDS = 6
-const HISTORY_LIMIT = 30
+const HISTORY_LIMIT = 20
 
 const isoDate = z.string().datetime({ offset: true })
 
@@ -146,34 +146,30 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
   }
 }
 
-const REQUEST_TIMEOUT_MS = 20_000
+const REQUEST_TIMEOUT_MS = 15_000
 const RETRYABLE = new Set([429, 500, 503, 504])
 const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']
 
-// Model yoğun (503/429) ya da bulunamazsa (404) sıradaki modele geçer.
+// Model yoğun (503/429), zaman aşımında ya da bulunamazsa (404) sıradaki modele geçer.
 async function callGemini(apiKey: string, preferred: string | undefined, body: unknown): Promise<Response> {
   const models = [...new Set([preferred, ...FALLBACK_MODELS].filter((m): m is string => !!m))]
   let last = 'Gemini yanıt vermedi'
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      let res: Response
-      try {
-        res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        })
-      } catch {
-        last = `Gemini zaman aşımı (${model})`
-        break
-      }
-      if (res.ok) return res
-      last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
-      if (res.status === 404) break
-      if (!RETRYABLE.has(res.status)) throw new Error(last)
-      await new Promise((r) => setTimeout(r, 1000))
+    let res: Response
+    try {
+      res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch {
+      last = `Gemini zaman aşımı (${model})`
+      continue
     }
+    if (res.ok) return res
+    last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
+    if (res.status !== 404 && !RETRYABLE.has(res.status)) throw new Error(last)
   }
   throw new Error(last)
 }

@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { completeAssistantTask, getAssistantState, sendAssistantMessage } from '@/app/actions/assistant'
+import {
+  completeAssistantTask,
+  deleteAssistantNote,
+  getAssistantState,
+  sendAssistantMessage,
+  updateAssistantNote,
+} from '@/app/actions/assistant'
+import { PushToggle } from '@/components/push-toggle'
 
 type Msg = { id: string; role: string; content: string }
 type Task = { id: string; title: string; dueAt: string | null; remindAt: string | null }
@@ -20,6 +27,10 @@ export default function AssistantPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [input, setInput] = useState('')
+  const [noteQuery, setNoteQuery] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -61,6 +72,20 @@ export default function AssistantPage() {
     await refresh().catch(() => {})
     setSending(false)
   }
+
+  async function saveNote(id: string) {
+    const res = await updateAssistantNote(id, editText)
+    if (res.success) setNotes((n) => n.map((x) => (x.id === id ? { ...x, content: editText.trim() } : x)))
+    setEditingId(null)
+  }
+
+  async function removeNote(id: string) {
+    const res = await deleteAssistantNote(id)
+    if (res.success) setNotes((n) => n.filter((x) => x.id !== id))
+    setConfirmDeleteId(null)
+  }
+
+  const shownNotes = notes.filter((n) => n.content.toLowerCase().includes(noteQuery.trim().toLowerCase()))
 
   async function done(id: string) {
     await completeAssistantTask(id)
@@ -134,17 +159,59 @@ export default function AssistantPage() {
           )}
         </section>
         <section className="bg-white border border-slate-200 rounded p-4">
-          <h2 className="font-semibold text-slate-900 mb-3">Son notlar</h2>
-          {notes.length === 0 ? (
-            <p className="text-sm text-slate-500">Henüz not yok.</p>
+          <h2 className="font-semibold text-slate-900 mb-3">Notlar</h2>
+          <label htmlFor="note-search" className="sr-only">Notlarda ara</label>
+          <input
+            id="note-search"
+            value={noteQuery}
+            onChange={(e) => setNoteQuery(e.target.value)}
+            placeholder="Notlarda ara…"
+            className="w-full border border-slate-300 rounded px-3 py-1.5 text-sm mb-3"
+          />
+          {shownNotes.length === 0 ? (
+            <p className="text-sm text-slate-500">{notes.length === 0 ? 'Henüz not yok.' : 'Eşleşen not yok.'}</p>
           ) : (
-            <ul className="space-y-2">
-              {notes.map((n) => (
-                <li key={n.id} className="text-sm text-slate-700 whitespace-pre-wrap">{n.content}</li>
+            <ul className="space-y-3 max-h-96 overflow-auto">
+              {shownNotes.map((n) => (
+                <li key={n.id} className="text-sm text-slate-700">
+                  {editingId === n.id ? (
+                    <div className="space-y-2">
+                      <label htmlFor={`edit-${n.id}`} className="sr-only">Notu düzenle</label>
+                      <textarea
+                        id={`edit-${n.id}`}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        maxLength={5000}
+                        rows={3}
+                        className="w-full border border-slate-300 rounded px-2 py-1"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => saveNote(n.id)} disabled={!editText.trim()} className="px-2 py-1 bg-slate-900 text-white rounded text-xs disabled:opacity-50">Kaydet</button>
+                        <button onClick={() => setEditingId(null)} className="px-2 py-1 border border-slate-300 rounded text-xs">Vazgeç</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap">{n.content}</p>
+                      <div className="flex gap-3 mt-1 text-xs">
+                        <button onClick={() => { setEditingId(n.id); setEditText(n.content) }} className="underline text-slate-600">Düzenle</button>
+                        {confirmDeleteId === n.id ? (
+                          <>
+                            <button onClick={() => removeNote(n.id)} className="underline text-red-600">Silmeyi onayla</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="underline text-slate-600">Vazgeç</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteId(n.id)} className="underline text-red-600">Sil</button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </li>
               ))}
             </ul>
           )}
         </section>
+        <PushToggle />
       </aside>
     </div>
   )

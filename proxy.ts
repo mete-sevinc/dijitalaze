@@ -9,5 +9,5 @@ export const proxy = auth((req) => {
 })
 
 export const config = {
-  matcher: ['/((?!api/auth|giris-hatasi|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|api/cron|sw.js|giris-hatasi|_next/static|_next/image|favicon.ico).*)'],
 }
