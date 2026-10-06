@@ -13,7 +13,7 @@ export class AgentRuntime {
     companyId: string,
     userMessage: string,
     conversationId?: string
-  ): Promise<string> {
+  ): Promise<{ conversationId: string; response: string }> {
     // Load or create conversation
     let conversation
     if (conversationId) {
@@ -101,7 +101,7 @@ export class AgentRuntime {
       },
     })
 
-    return finalResponse
+    return { conversationId: conversation.id, response: finalResponse }
   }
 
   async *streamConversation(
