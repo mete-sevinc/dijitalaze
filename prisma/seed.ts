@@ -30,6 +30,7 @@ async function main() {
   // Create company
   const company = await prisma.company.create({
     data: {
+      id: "demo_company",
       name: "Demo Teknoloji A.Ş.",
       description: "Kurumsal yazılım çözümleri sağlayan teknoloji firması"
     }
