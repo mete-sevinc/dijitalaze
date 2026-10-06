@@ -1,5 +1,4 @@
 'use client'
-import { useCompanyId } from '@/components/company-context'
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -29,7 +28,6 @@ interface Conversation {
 }
 
 export default function ChatPage() {
-  const companyId = useCompanyId()
   const { id } = useParams() as { id: string }
   const router = useRouter()
 
@@ -75,7 +73,7 @@ export default function ChatPage() {
     setInput('')
     setSending(true)
 
-    const result = await sendMessage(id, companyId, userMessage.content, currentConversationId)
+    const result = await sendMessage(id, 'demo_company', userMessage.content, currentConversationId)
 
     if (result.success && result.data) {
       const data = result.data as { conversationId: string; response: string; messages?: Message[] }

@@ -3,7 +3,6 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
-import { getActiveCompany } from '@/lib/active-company'
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'Firma adı gerekli').max(200),
@@ -15,7 +14,10 @@ const userSchema = z.object({
   name: z.string().trim().max(200).optional(),
 })
 
-const getCompanyRow = getActiveCompany
+// Single-tenant app: the one company row is the active company.
+async function getCompanyRow() {
+  return prisma.company.findFirst({ orderBy: { createdAt: 'asc' } })
+}
 
 function fail(error: unknown, fallback: string) {
   if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0].message }

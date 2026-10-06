@@ -34,15 +34,7 @@ async function main() {
   const company = await prisma.company.create({
     data: {
       id: "demo_company",
-      name: "Demo",
-      description: "Deneme ve test firması"
-    }
-  })
-
-  await prisma.company.create({
-    data: {
-      id: "aze_company",
-      name: "AZE",
+      name: "AZE Otomasyon",
       description: "AZE'nin Dijital Gezegeni"
     }
   })

@@ -1,5 +1,4 @@
 'use client'
-import { useCompanyId } from '@/components/company-context'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getEmployees } from '@/app/actions/employees'
@@ -15,14 +14,13 @@ interface Employee {
 }
 
 export default function EmployeesPage() {
-  const companyId = useCompanyId()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'ACTIVE' | 'PAUSED'>('all')
 
   useEffect(() => {
     async function loadEmployees() {
-      const result = await getEmployees(companyId)
+      const result = await getEmployees('demo_company')
       if (result.success && result.data) {
         setEmployees(result.data)
       }

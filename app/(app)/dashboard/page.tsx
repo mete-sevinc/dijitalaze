@@ -1,5 +1,4 @@
 'use client'
-import { useCompanyId } from '@/components/company-context'
 import { useEffect, useState } from 'react'
 import { getDashboardSummary, generateDailyBriefing } from '@/app/actions/dashboard'
 
@@ -13,7 +12,6 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const companyId = useCompanyId()
   const [data, setData] = useState<DashboardData | null>(null)
   const [briefing, setBriefing] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,7 +19,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
-      const result = await getDashboardSummary(companyId)
+      const result = await getDashboardSummary('demo_company')
       if (result.success && result.data) {
         setData(result.data)
       }
@@ -33,7 +31,7 @@ export default function DashboardPage() {
 
   async function handleGenerateBriefing() {
     setGeneratingBriefing(true)
-    const result = await generateDailyBriefing(companyId)
+    const result = await generateDailyBriefing('demo_company')
     if (result.success && result.data) {
       setBriefing(result.data)
     }

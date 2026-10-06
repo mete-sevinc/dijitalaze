@@ -3,14 +3,8 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { CompanySwitcher } from '@/components/company-switcher'
-import { CompanyProvider } from '@/components/company-context'
-import { getActiveCompany } from '@/lib/active-company'
-import { prisma } from '@/lib/db'
 
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const company = await getActiveCompany()
-  const companies = await prisma.company.findMany({ select: { id: true, name: true }, orderBy: { createdAt: 'asc' } })
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full">
       {/* Sidebar */}
@@ -31,7 +25,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
         <div className="p-4 border-t border-slate-700">
           <div className="text-xs text-slate-400">
-            <p className="mb-1">Şirket: {company?.name ?? '-'}</p>
+            <p className="mb-1">Şirket: AZE Otomasyon</p>
             <p>Durum: Çevrimiçi ✓</p>
           </div>
         </div>
@@ -42,7 +36,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center">
           <div />
           <div className="flex items-center gap-4">
-            {company && <CompanySwitcher companies={companies} activeId={company.id} />}
             <ThemeToggle />
             <button className="text-sm px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded">
               Profil
@@ -50,9 +43,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <div key={company?.id} className="flex-1 overflow-auto">
-          <CompanyProvider companyId={company?.id ?? ''}>{children}</CompanyProvider>
-        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   )

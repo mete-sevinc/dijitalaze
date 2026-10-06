@@ -1,10 +1,8 @@
 'use client'
-import { useCompanyId } from '@/components/company-context'
 import { useEffect, useState } from 'react'
 import { getTasks } from '@/app/actions/tasks'
 
 export default function TasksPage() {
-  const companyId = useCompanyId()
   interface Task {
     id: string
     title: string
@@ -18,7 +16,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     async function loadTasks() {
-      const result = await getTasks(companyId)
+      const result = await getTasks('demo_company')
       if (result.success && result.data) setTasks(result.data as Task[])
       setLoading(false)
     }
