@@ -3,8 +3,10 @@
 import { prisma } from '@/lib/db'
 import { createTaskSchema, updateTaskSchema } from '@/lib/schemas'
 import { z } from 'zod'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function getTasks(companyId: string, filter?: { status?: string; assigneeId?: string }) {
+  await requireAuth()
   try {
     const tasks = await prisma.task.findMany({
       where: {
@@ -26,6 +28,7 @@ export async function getTasks(companyId: string, filter?: { status?: string; as
 }
 
 export async function createTask(companyId: string, input: z.infer<typeof createTaskSchema>) {
+  await requireAuth()
   try {
     const validated = createTaskSchema.parse(input)
     const task = await prisma.task.create({
@@ -43,6 +46,7 @@ export async function createTask(companyId: string, input: z.infer<typeof create
 }
 
 export async function updateTask(taskId: string, input: z.infer<typeof updateTaskSchema>) {
+  await requireAuth()
   try {
     const validated = updateTaskSchema.parse(input)
     const task = await prisma.task.update({

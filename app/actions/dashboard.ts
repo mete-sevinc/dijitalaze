@@ -2,8 +2,10 @@
 
 import { prisma } from '@/lib/db'
 import { agentRuntime } from '@/lib/agents/runtime'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function getDashboardSummary(companyId: string) {
+  await requireAuth()
   try {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -52,6 +54,7 @@ export async function getDashboardSummary(companyId: string) {
 }
 
 export async function generateDailyBriefing(companyId: string) {
+  await requireAuth()
   try {
     const briefing = await agentRuntime.generateDailyBriefing(companyId)
     return { success: true, data: briefing }

@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db'
 import { agentRuntime } from '@/lib/agents/runtime'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function sendMessage(
   employeeId: string,
@@ -9,6 +10,7 @@ export async function sendMessage(
   content: string,
   conversationId?: string
 ) {
+  await requireAuth()
   try {
     const response = await agentRuntime.runConversation(employeeId, companyId, content, conversationId)
 
@@ -25,6 +27,7 @@ export async function sendMessage(
 }
 
 export async function getConversations(employeeId: string) {
+  await requireAuth()
   try {
     const conversations = await prisma.conversation.findMany({
       where: { employeeId },
@@ -50,6 +53,7 @@ export async function getConversations(employeeId: string) {
 }
 
 export async function getConversation(conversationId: string) {
+  await requireAuth()
   try {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -81,6 +85,7 @@ export async function getConversation(conversationId: string) {
 }
 
 export async function createConversation(employeeId: string, companyId: string, title: string) {
+  await requireAuth()
   try {
     const conversation = await prisma.conversation.create({
       data: {

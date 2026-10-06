@@ -3,8 +3,10 @@
 import { prisma } from '@/lib/db'
 import { createEmployeeSchema, updateEmployeeSchema } from '@/lib/schemas'
 import { z } from 'zod'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function getEmployees(companyId: string) {
+  await requireAuth()
   try {
     const employees = await prisma.employee.findMany({
       where: { companyId },
@@ -33,6 +35,7 @@ export async function getEmployees(companyId: string) {
 }
 
 export async function getEmployeeById(employeeId: string) {
+  await requireAuth()
   try {
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -74,6 +77,7 @@ export async function getEmployeeById(employeeId: string) {
 }
 
 export async function createEmployee(companyId: string, input: z.infer<typeof createEmployeeSchema>) {
+  await requireAuth()
   try {
     const validated = createEmployeeSchema.parse(input)
 
@@ -97,6 +101,7 @@ export async function createEmployee(companyId: string, input: z.infer<typeof cr
 }
 
 export async function updateEmployee(employeeId: string, input: z.infer<typeof updateEmployeeSchema>) {
+  await requireAuth()
   try {
     const validated = updateEmployeeSchema.parse(input)
 
@@ -118,6 +123,7 @@ export async function updateEmployee(employeeId: string, input: z.infer<typeof u
 }
 
 export async function searchEmployees(companyId: string, query: string, department?: string) {
+  await requireAuth()
   try {
     const employees = await prisma.employee.findMany({
       where: {

@@ -1,8 +1,10 @@
 'use server'
 
 import { prisma } from '@/lib/db'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function getInstructions(employeeId: string) {
+  await requireAuth()
   try {
     const instructions = await prisma.employeeInstruction.findMany({
       where: { employeeId },
@@ -15,6 +17,7 @@ export async function getInstructions(employeeId: string) {
 }
 
 export async function createInstruction(employeeId: string, content: string, priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL' = 'NORMAL') {
+  await requireAuth()
   try {
     const instruction = await prisma.employeeInstruction.create({
       data: { employeeId, content, priority, active: true },
@@ -26,6 +29,7 @@ export async function createInstruction(employeeId: string, content: string, pri
 }
 
 export async function updateInstruction(id: string, data: { content?: string; priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'; active?: boolean }) {
+  await requireAuth()
   try {
     const instruction = await prisma.employeeInstruction.update({
       where: { id },
@@ -38,6 +42,7 @@ export async function updateInstruction(id: string, data: { content?: string; pr
 }
 
 export async function deleteInstruction(id: string) {
+  await requireAuth()
   try {
     await prisma.employeeInstruction.delete({ where: { id } })
     return { success: true }
