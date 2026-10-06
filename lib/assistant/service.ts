@@ -146,6 +146,24 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
   }
 }
 
+const RETRYABLE = new Set([429, 500, 503, 504])
+
+// Gemini geçici yoğunlukta 503/429 döner; kısa aralıklarla birkaç kez dener.
+async function callGemini(apiKey: string, model: string, body: unknown): Promise<Response> {
+  let res: Response
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(body),
+    })
+    if (res.ok || !RETRYABLE.has(res.status)) break
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+  }
+  if (!res!.ok) throw new Error(`Gemini API ${res!.status}: ${(await res!.text()).slice(0, 300)}`)
+  return res!
+}
+
 export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
@@ -164,17 +182,12 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
 
   let reply = ''
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt() }] },
-        contents,
-        tools: [{ functionDeclarations }],
-        generationConfig: { maxOutputTokens: 1500 },
-      }),
+    const res = await callGemini(apiKey, model, {
+      systemInstruction: { parts: [{ text: systemPrompt() }] },
+      contents,
+      tools: [{ functionDeclarations }],
+      generationConfig: { maxOutputTokens: 1500 },
     })
-    if (!res.ok) throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 300)}`)
     const data = await res.json()
     const content: GeminiContent | undefined = data.candidates?.[0]?.content
     const parts: GeminiPart[] = content?.parts ?? []
