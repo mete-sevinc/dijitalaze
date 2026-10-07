@@ -12,9 +12,9 @@ interface GeminiFunctionDeclaration {
   parameters: Record<string, unknown>
 }
 
-const REQUEST_TIMEOUT_MS = 20_000
+const REQUEST_TIMEOUT_MS = 25_000
 const RETRYABLE = new Set([429, 500, 503, 504])
-const FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest']
+const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']
 
 export class GeminiProvider extends BaseAIProvider {
   private apiKey: string
