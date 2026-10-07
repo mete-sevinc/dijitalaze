@@ -42,7 +42,7 @@ export function createAIProvider(type: string = process.env.AI_PROVIDER || 'gemi
   if (type === 'gemini') {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { GeminiProvider } = require('./gemini')
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    const model = process.env.GEMINI_MODEL || 'gemini-flash-latest'
     cachedProvider = new GeminiProvider(model)
     return cachedProvider
   }

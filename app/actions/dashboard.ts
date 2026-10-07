@@ -58,7 +58,8 @@ export async function generateDailyBriefing(companyId: string) {
   try {
     const briefing = await agentRuntime.generateDailyBriefing(companyId)
     return { success: true, data: briefing }
-  } catch {
+  } catch (error) {
+    console.error('generateDailyBriefing failed', error)
     return { success: false, error: 'Günlük özet oluşturulamadı' }
   }
 }

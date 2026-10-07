@@ -34,6 +34,8 @@ export default function DashboardPage() {
     const result = await generateDailyBriefing('demo_company')
     if (result.success && result.data) {
       setBriefing(result.data)
+    } else {
+      setBriefing(result.error ?? 'Günlük özet oluşturulamadı')
     }
     setGeneratingBriefing(false)
   }
