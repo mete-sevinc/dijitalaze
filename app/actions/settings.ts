@@ -9,11 +9,6 @@ const companySchema = z.object({
   description: z.string().trim().max(2000).optional(),
 })
 
-const userSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Geçerli bir e-posta girin'),
-  name: z.string().trim().max(200).optional(),
-})
-
 // Single-tenant app: the one company row is the active company.
 async function getCompanyRow() {
   return prisma.company.findFirst({ orderBy: { createdAt: 'asc' } })
@@ -28,8 +23,12 @@ export async function getSettings() {
   await requireAuth()
   try {
     const company = await getCompanyRow()
-    const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
-    return { success: true as const, data: { company, users } }
+    // Login access comes from auth (Entra + AUTH_ALLOWED_EMAIL), not the DB.
+    const allowedEmails = (process.env.AUTH_ALLOWED_EMAIL ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean)
+    return { success: true as const, data: { company, allowedEmails } }
   } catch (error) {
     return fail(error, 'Ayarlar alınamadı')
   }
@@ -48,33 +47,6 @@ export async function updateCompanyInfo(input: { name: string; description?: str
     return { success: true as const, data: updated }
   } catch (error) {
     return fail(error, 'Firma bilgileri güncellenemedi')
-  }
-}
-
-export async function addUser(input: { email: string; name?: string }) {
-  await requireAuth()
-  try {
-    const data = userSchema.parse(input)
-    const company = await getCompanyRow()
-    const user = await prisma.user.create({
-      data: { email: data.email, name: data.name || null, companyId: company?.id },
-    })
-    return { success: true as const, data: user }
-  } catch (error) {
-    if (typeof error === 'object' && error && 'code' in error && error.code === 'P2002') {
-      return { success: false as const, error: 'Bu e-posta zaten kayıtlı' }
-    }
-    return fail(error, 'Kullanıcı eklenemedi')
-  }
-}
-
-export async function removeUser(id: string) {
-  await requireAuth()
-  try {
-    await prisma.user.delete({ where: { id } })
-    return { success: true as const }
-  } catch (error) {
-    return fail(error, 'Kullanıcı silinemedi')
   }
 }
 

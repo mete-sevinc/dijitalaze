@@ -11,5 +11,5 @@ Güncelleme: 2026-10-06
 - Kişisel asistan (/assistant): Gemini (model yedek zinciri), görev/not/hatırlatma araçları, not düzenle/sil/ara, Web Push bildirimi + günlük özet cron'u (`/api/cron/assistant`). Vercel env gerekli: NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CRON_SECRET (yerelde .env.local'de). Dakikalık hatırlatma için harici tetikleyici: GET /api/cron/assistant (Authorization: Bearer CRON_SECRET); Vercel Hobby'de cron günde 1.
 - Doğrulanmadı: push bildirimi (cihaza gerçek gönderim), cron çalışması.
 - Sıradaki: ana sayfa tasarımı, toplantılar, org chart.
-- Karar (2026-10-07): Giriş DB'ye bağlanmayacak. Kullanıcı kaynağı auth (Entra + `AUTH_ALLOWED_EMAIL`); self-kayıt yok, listede olmayan giremez. Ayarlar > Kullanıcılar bölümündeki DB `User` ekle/çıkar bu kararla çelişiyor; yeniden ele alınacak.
+- Karar (2026-10-07): Giriş DB'ye bağlanmayacak. Kullanıcı kaynağı auth (Entra + `AUTH_ALLOWED_EMAIL`); self-kayıt yok, listede olmayan giremez. Ayarlar > Kullanıcılar artık auth listesini salt-okunur gösteriyor (DB ekle/çıkar kaldırıldı).
 - Firmalar: `demo_company` = "Demo" (deneme), `aze_company` = "AZE" (asıl ajanlar). Üst çubuktaki seçici `companyId` cookie'sini kurar. `tool-executor.ts` firma kimliğini artık çalışanın DB kaydından alıyor (eski `split('_')` hatası giderildi).

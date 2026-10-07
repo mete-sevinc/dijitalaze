@@ -3,16 +3,8 @@ import { useEffect, useState } from 'react'
 import {
   getSettings,
   updateCompanyInfo,
-  addUser,
-  removeUser,
   deleteAllData,
 } from '@/app/actions/settings'
-
-interface UserRow {
-  id: string
-  email: string
-  name: string | null
-}
 
 const inputCls = 'w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white text-slate-900'
 const btnCls = 'px-4 py-2 rounded text-sm font-medium bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-50'
@@ -21,9 +13,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [users, setUsers] = useState<UserRow[]>([])
-  const [newEmail, setNewEmail] = useState('')
-  const [newName, setNewName] = useState('')
+  const [allowedEmails, setAllowedEmails] = useState<string[]>([])
   const [confirmText, setConfirmText] = useState('')
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -33,7 +23,7 @@ export default function SettingsPage() {
     if (res.success) {
       setName(res.data.company?.name ?? '')
       setDescription(res.data.company?.description ?? '')
-      setUsers(res.data.users)
+      setAllowedEmails(res.data.allowedEmails)
     } else {
       setMsg({ kind: 'err', text: res.error })
     }
@@ -55,20 +45,6 @@ export default function SettingsPage() {
   async function saveCompany(e: React.FormEvent) {
     e.preventDefault()
     await run(() => updateCompanyInfo({ name, description }), 'Firma bilgileri kaydedildi')
-  }
-
-  async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault()
-    if (await run(() => addUser({ email: newEmail, name: newName }), 'Kullanıcı eklendi')) {
-      setNewEmail('')
-      setNewName('')
-      load()
-    }
-  }
-
-  async function handleRemoveUser(u: UserRow) {
-    if (!window.confirm(`${u.email} silinsin mi?`)) return
-    if (await run(() => removeUser(u.id), 'Kullanıcı silindi')) load()
   }
 
   async function handleDeleteAll() {
@@ -109,25 +85,15 @@ export default function SettingsPage() {
 
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">Kullanıcılar</h2>
+        <p className="text-sm text-slate-600">
+          Giriş izni Microsoft Entra hesabından ve izinli e-posta listesinden gelir. Listede olmayan giriş yapamaz, kendi kendine kayıt yoktur.
+        </p>
         <ul className="divide-y divide-slate-200">
-          {users.length === 0 && <li className="py-2 text-sm text-slate-500">Kayıtlı kullanıcı yok</li>}
-          {users.map((u) => (
-            <li key={u.id} className="py-2 flex items-center justify-between text-sm">
-              <span className="text-slate-900">
-                {u.name ? `${u.name} · ` : ''}
-                {u.email}
-              </span>
-              <button onClick={() => handleRemoveUser(u)} disabled={busy} className="text-red-600 hover:underline disabled:opacity-50">
-                Çıkar
-              </button>
-            </li>
+          {allowedEmails.length === 0 && <li className="py-2 text-sm text-slate-500">İzinli e-posta tanımlı değil</li>}
+          {allowedEmails.map((email) => (
+            <li key={email} className="py-2 text-sm text-slate-900">{email}</li>
           ))}
         </ul>
-        <form onSubmit={handleAddUser} className="flex flex-wrap gap-2">
-          <input className={`${inputCls} flex-1 min-w-48`} type="email" placeholder="E-posta" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required aria-label="E-posta" />
-          <input className={`${inputCls} flex-1 min-w-40`} placeholder="Ad (opsiyonel)" value={newName} onChange={(e) => setNewName(e.target.value)} aria-label="Ad" />
-          <button className={btnCls} disabled={busy}>Ekle</button>
-        </form>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 space-y-4 border border-red-300">
