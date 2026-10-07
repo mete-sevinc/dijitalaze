@@ -73,6 +73,11 @@ async function listTasks(context: AgentContext, input: Record<string, unknown>):
   }
 }
 
+async function getCompanyId(employeeId: string): Promise<string> {
+  const employee = await prisma.employee.findUniqueOrThrow({ where: { id: employeeId }, select: { companyId: true } })
+  return employee.companyId
+}
+
 async function createTask(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   if (!context.permissions.includes('CAN_CREATE_TASKS') && !context.permissions.includes('ALL')) {
     return {
@@ -84,9 +89,11 @@ async function createTask(context: AgentContext, input: Record<string, unknown>)
 
   const parsed = createTaskInputSchema.parse(input)
 
+  const companyId = await getCompanyId(context.employeeId)
+
   const task = await prisma.task.create({
     data: {
-      companyId: context.employeeId.split('_')[0],
+      companyId,
       title: parsed.title,
       description: parsed.description,
       assigneeId: input.assigneeId as string | undefined,
@@ -99,7 +106,7 @@ async function createTask(context: AgentContext, input: Record<string, unknown>)
 
   await prisma.auditLog.create({
     data: {
-      companyId: context.employeeId.split('_')[0],
+      companyId,
       action: 'TASK_CREATED',
       entityType: 'Task',
       entityId: task.id,
@@ -230,7 +237,7 @@ async function addEmployeeMemory(context: AgentContext, input: Record<string, un
 
 async function getCompanySummary(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
   const parsed = getCompanySummaryInputSchema.parse(input)
-  const companyId = context.employeeId.split('_')[0]
+  const companyId = await getCompanyId(context.employeeId)
 
   const company = await prisma.company.findUnique({ where: { id: companyId } })
   const employeeCount = await prisma.employee.count({ where: { companyId } })
