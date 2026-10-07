@@ -12,4 +12,4 @@ Güncelleme: 2026-10-06
 - Doğrulanmadı: push bildirimi (cihaza gerçek gönderim), cron çalışması.
 - Sıradaki: ana sayfa tasarımı, toplantılar, org chart.
 - Karar (2026-10-07): Giriş DB'ye bağlanmayacak. Kullanıcı kaynağı auth (Entra + `AUTH_ALLOWED_EMAIL`); self-kayıt yok, listede olmayan giremez. Ayarlar > Kullanıcılar artık auth listesini salt-okunur gösteriyor (DB ekle/çıkar kaldırıldı).
-- Firmalar: `demo_company` = "Demo" (deneme), `aze_company` = "AZE" (asıl ajanlar). Üst çubuktaki seçici `companyId` cookie'sini kurar. `tool-executor.ts` firma kimliğini artık çalışanın DB kaydından alıyor (eski `split('_')` hatası giderildi).
+- Firma: tek firma (`demo_company` kimliği, ad "AZE Otomasyon"). Çoklu-firma/seçici geri alındı (2ed00ca); `aze_company` DB'den kaldırıldı. `tool-executor.ts` firma kimliğini çalışanın DB kaydından alıyor.
