@@ -174,17 +174,20 @@ async function callGemini(apiKey: string, preferred: string | undefined, body: u
   throw new Error(last)
 }
 
-export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
+type HistoryItem = { role: string; content: string }
+type ToolRunner = (name: string, args: unknown) => Promise<unknown>
+
+const GITHUB_MODELS_URL = 'https://models.github.ai/inference/chat/completions'
+const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note'])
+
+async function geminiTurn(
+  history: HistoryItem[],
+  userText: string,
+  run: ToolRunner
+): Promise<string> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
-  const model = process.env.GEMINI_MODEL
-
-  const past = await prisma.assistantMessage.findMany({
-    where: { ownerEmail: owner },
-    orderBy: { createdAt: 'desc' },
-    take: HISTORY_LIMIT,
-  })
-  const contents: GeminiContent[] = past.reverse().map((m) => ({
+  const contents: GeminiContent[] = history.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
@@ -192,15 +195,14 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
 
   let reply = ''
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await callGemini(apiKey, model, {
+    const res = await callGemini(apiKey, process.env.GEMINI_MODEL, {
       systemInstruction: { parts: [{ text: systemPrompt() }] },
       contents,
       tools: [{ functionDeclarations }],
       generationConfig: { maxOutputTokens: 1500 },
     })
     const data = await res.json()
-    const content: GeminiContent | undefined = data.candidates?.[0]?.content
-    const parts: GeminiPart[] = content?.parts ?? []
+    const parts: GeminiPart[] = data.candidates?.[0]?.content?.parts ?? []
     reply = parts.map((p) => p.text ?? '').join('')
 
     const calls = parts.filter((p) => p.functionCall)
@@ -211,8 +213,7 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
     for (const p of calls) {
       const { name, args } = p.functionCall!
       try {
-        const out = await runTool(owner, name, args ?? {})
-        responses.push({ functionResponse: { name, response: { result: out } } })
+        responses.push({ functionResponse: { name, response: { result: await run(name, args ?? {}) } } })
       } catch (e) {
         responses.push({
           functionResponse: { name, response: { error: e instanceof Error ? e.message : 'Araç hatası' } },
@@ -220,6 +221,106 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
       }
     }
     contents.push({ role: 'user', parts: responses })
+  }
+  return reply
+}
+
+// Gemini şemasındaki (BÜYÜK HARFLİ) tipleri OpenAI/JSON Schema biçimine çevirir.
+function toJsonSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(toJsonSchema)
+  if (node && typeof node === 'object') {
+    return Object.fromEntries(
+      Object.entries(node).map(([k, v]) => [k, k === 'type' && typeof v === 'string' ? v.toLowerCase() : toJsonSchema(v)])
+    )
+  }
+  return node
+}
+
+interface OpenAIMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content?: string | null
+  tool_calls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[]
+  tool_call_id?: string
+}
+
+async function githubModelsTurn(
+  token: string,
+  history: HistoryItem[],
+  userText: string,
+  run: ToolRunner
+): Promise<string> {
+  const model = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4.1-mini'
+  const tools = functionDeclarations.map((f) => ({
+    type: 'function',
+    function: { name: f.name, description: f.description, parameters: toJsonSchema(f.parameters) },
+  }))
+  const messages: OpenAIMessage[] = [
+    { role: 'system', content: systemPrompt() },
+    ...history.map((m): OpenAIMessage => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+    { role: 'user', content: userText },
+  ]
+
+  let reply = ''
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const res = await fetch(GITHUB_MODELS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ model, messages, tools, max_tokens: 1500 }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!res.ok) throw new Error(`GitHub Models ${res.status}: ${(await res.text()).slice(0, 300)}`)
+    const msg: OpenAIMessage | undefined = (await res.json()).choices?.[0]?.message
+    reply = msg?.content ?? ''
+    const calls = msg?.tool_calls ?? []
+    if (calls.length === 0) break
+
+    messages.push({ role: 'assistant', content: msg?.content ?? null, tool_calls: calls })
+    for (const c of calls) {
+      let content: string
+      try {
+        content = JSON.stringify(await run(c.function.name, JSON.parse(c.function.arguments || '{}')))
+      } catch (e) {
+        content = JSON.stringify({ error: e instanceof Error ? e.message : 'Araç hatası' })
+      }
+      messages.push({ role: 'tool', tool_call_id: c.id, content })
+    }
+  }
+  return reply
+}
+
+export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
+  const past = await prisma.assistantMessage.findMany({
+    where: { ownerEmail: owner },
+    orderBy: { createdAt: 'desc' },
+    take: HISTORY_LIMIT,
+  })
+  const history = past.reverse()
+
+  // Kaydedici araçlar çalıştıysa sağlayıcı değiştirilmez (aynı işlem iki kez yazılmasın).
+  const done: string[] = []
+  const run: ToolRunner = async (name, args) => {
+    const out = await runTool(owner, name, args)
+    if (MUTATING_TOOLS.has(name)) done.push(`${name}: ${JSON.stringify(out)}`)
+    return out
+  }
+
+  let reply = ''
+  try {
+    reply = await geminiTurn(history, userText, run)
+  } catch (primaryError) {
+    console.error('gemini turn failed', primaryError)
+    const token = process.env.GITHUB_MODELS_TOKEN
+    if (done.length > 0) {
+      reply = 'İşlemi kaydettim ama yanıtı oluşturamadım. Sağ paneldeki listeden kontrol edebilirsin.'
+    } else if (token) {
+      reply = await githubModelsTurn(token, history, userText, run)
+    } else {
+      throw primaryError
+    }
   }
 
   reply = reply || 'Bir yanıt üretemedim, tekrar dener misin?'
