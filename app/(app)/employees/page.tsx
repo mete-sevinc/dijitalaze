@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getEmployees } from '@/app/actions/employees'
+import { createEmployee, getEmployees } from '@/app/actions/employees'
 
 interface Employee {
   id: string
@@ -17,6 +17,30 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'ACTIVE' | 'PAUSED'>('all')
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ name: '', title: '', department: '', responsibilities: '' })
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  async function handleCreate() {
+    setSaving(true)
+    setFormError(null)
+    const result = await createEmployee('demo_company', {
+      name: form.name.trim(),
+      title: form.title.trim(),
+      department: form.department.trim(),
+      responsibilities: form.responsibilities.trim() || undefined,
+    })
+    if (result.success) {
+      setForm({ name: '', title: '', department: '', responsibilities: '' })
+      setShowForm(false)
+      const list = await getEmployees('demo_company')
+      if (list.success && list.data) setEmployees(list.data)
+    } else {
+      setFormError(result.error ?? 'Çalışan oluşturulamadı')
+    }
+    setSaving(false)
+  }
 
   useEffect(() => {
     async function loadEmployees() {
@@ -39,10 +63,34 @@ export default function EmployeesPage() {
           <h1 className="text-4xl font-bold text-slate-900">Çalışanlar</h1>
           <p className="text-slate-600 mt-2">AZE Otomasyon dijital çalışanlarını yönet</p>
         </div>
-        <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <button onClick={() => setShowForm((v) => !v)} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           ➕ Yeni Çalışan
         </button>
       </div>
+
+      {showForm && (
+        <form
+          className="bg-white rounded-lg shadow p-6 grid gap-3 md:grid-cols-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleCreate()
+          }}
+        >
+          <label className="sr-only" htmlFor="emp-name">Ad</label>
+          <input id="emp-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ad (örn. Ayşe)" className="border border-slate-300 rounded px-3 py-2 text-sm" />
+          <label className="sr-only" htmlFor="emp-title">Unvan</label>
+          <input id="emp-title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Unvan (örn. Satış Uzmanı)" className="border border-slate-300 rounded px-3 py-2 text-sm" />
+          <label className="sr-only" htmlFor="emp-dept">Bölüm</label>
+          <input id="emp-dept" required value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Bölüm (örn. Satış)" className="border border-slate-300 rounded px-3 py-2 text-sm" />
+          <label className="sr-only" htmlFor="emp-resp">Sorumluluklar</label>
+          <textarea id="emp-resp" rows={3} value={form.responsibilities} onChange={(e) => setForm({ ...form, responsibilities: e.target.value })} placeholder="Sorumlulukları (isteğe bağlı; detayı sonra çalışan sayfasından zenginleştirebilirsin)" className="border border-slate-300 rounded px-3 py-2 text-sm md:col-span-3" />
+          {formError && <p className="text-sm text-red-600 md:col-span-3" role="alert">{formError}</p>}
+          <div className="md:col-span-3 flex gap-2">
+            <button disabled={saving} className="px-4 py-2 bg-slate-900 text-white rounded text-sm disabled:opacity-50">{saving ? 'Kaydediliyor…' : 'Kaydet'}</button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-slate-300 rounded text-sm">Vazgeç</button>
+          </div>
+        </form>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2">

@@ -189,6 +189,8 @@ model Task {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   completedAt   DateTime?
+  result        String?
+  reviewNote    String?
 
   @@index([companyId])
   @@index([assigneeId])
@@ -409,4 +411,15 @@ model AssistantPushSubscription {
   createdAt  DateTime @default(now())
 
   @@index([ownerEmail])
+}
+
+// Kişisel asistanın kalıcı hafızası (tercih, bilgi, rutin); her konuşmada prompta eklenir.
+model AssistantMemory {
+  id         String   @id @default(cuid())
+  ownerEmail String
+  content    String
+  kind       String   @default("fact") // fact | preference | routine | person
+  createdAt  DateTime @default(now())
+
+  @@index([ownerEmail, createdAt])
 }

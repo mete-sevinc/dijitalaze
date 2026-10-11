@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   completeAssistantTask,
+  deleteAssistantMemory,
   deleteAssistantNote,
   getAssistantState,
   sendAssistantMessage,
@@ -13,6 +14,7 @@ import { PushToggle } from '@/components/push-toggle'
 type Msg = { id: string; role: string; content: string }
 type Task = { id: string; title: string; dueAt: string | null; remindAt: string | null }
 type Note = { id: string; content: string }
+type Memory = { id: string; content: string; kind: string }
 
 const dt = new Intl.DateTimeFormat('tr-TR', {
   timeZone: 'Europe/Istanbul',
@@ -26,6 +28,7 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [notes, setNotes] = useState<Note[]>([])
+  const [memories, setMemories] = useState<Memory[]>([])
   const [input, setInput] = useState('')
   const [noteQuery, setNoteQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -40,6 +43,7 @@ export default function AssistantPage() {
     setMessages(s.messages)
     setTasks(s.tasks)
     setNotes(s.notes)
+    setMemories(s.memories)
   }
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export default function AssistantPage() {
         setMessages(s.messages)
         setTasks(s.tasks)
         setNotes(s.notes)
+        setMemories(s.memories)
       } catch {
         setError('Veriler yüklenemedi')
       }
@@ -86,6 +91,11 @@ export default function AssistantPage() {
   }
 
   const shownNotes = notes.filter((n) => n.content.toLowerCase().includes(noteQuery.trim().toLowerCase()))
+
+  async function forgetMemory(id: string) {
+    const res = await deleteAssistantMemory(id)
+    if (res.success) setMemories((m) => m.filter((x) => x.id !== id))
+  }
 
   async function done(id: string) {
     await completeAssistantTask(id)
@@ -206,6 +216,24 @@ export default function AssistantPage() {
                       </div>
                     </>
                   )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className="bg-white border border-slate-200 rounded p-4">
+          <h2 className="font-semibold text-slate-900 mb-1">Asistanın hafızası</h2>
+          <p className="text-xs text-slate-500 mb-3">Senin hakkında öğrendikleri. Yanlış olanı sil.</p>
+          {memories.length === 0 ? (
+            <p className="text-sm text-slate-500">Henüz öğrendiği bir şey yok.</p>
+          ) : (
+            <ul className="space-y-2 max-h-72 overflow-auto">
+              {memories.map((m) => (
+                <li key={m.id} className="text-sm text-slate-700 flex items-start gap-2">
+                  <span className="flex-1">{m.content}</span>
+                  <button onClick={() => forgetMemory(m.id)} className="text-xs underline text-red-600" aria-label={`Unut: ${m.content}`}>
+                    Unut
+                  </button>
                 </li>
               ))}
             </ul>

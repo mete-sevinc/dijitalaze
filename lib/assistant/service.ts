@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
+import { runAgent, ToolSpec } from '@/lib/ai/agent-loop'
+import { assignTaskToEmployee } from '@/lib/agents/work'
 
-const MAX_TOOL_ROUNDS = 6
 const HISTORY_LIMIT = 20
+const MEMORY_LIMIT = 40
 
 const isoDate = z.string().datetime({ offset: true })
 
@@ -15,72 +17,151 @@ const listTasksInput = z.object({ include_done: z.boolean().optional() })
 const completeTaskInput = z.object({ id: z.string().min(1) })
 const addNoteInput = z.object({ content: z.string().min(1).max(5000) })
 const listNotesInput = z.object({ query: z.string().max(200).optional() })
+const rememberInput = z.object({
+  content: z.string().trim().min(1).max(500),
+  kind: z.enum(['fact', 'preference', 'routine', 'person']).default('fact'),
+})
+const forgetInput = z.object({ id: z.string().min(1) })
+const assignInput = z.object({
+  employee_id: z.string().min(1),
+  title: z.string().trim().min(1).max(300),
+  description: z.string().max(4000).optional(),
+  due_at: isoDate.optional(),
+})
+const createEmployeeInput = z.object({
+  name: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(100),
+  department: z.string().trim().min(1).max(100),
+  responsibilities: z.string().max(2000).optional(),
+})
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta'
+const str = (description?: string) => ({ type: 'string', ...(description ? { description } : {}) })
 
-const functionDeclarations = [
+const tools: ToolSpec[] = [
   {
     name: 'add_task',
     description:
-      'İş/görev veya hatırlatma ekler. Kullanıcı bir zamanda hatırlatılmak istiyorsa remind_at ver. Son tarih varsa due_at ver.',
-    parameters: {
-      type: 'OBJECT',
+      'Sahibin kendi işini/hatırlatmasını ekler. Bir zamanda hatırlatılmak istiyorsa remind_at ver. Son tarih varsa due_at ver. (Personele iş vermek için assign_task_to_employee kullan.)',
+    inputSchema: {
+      type: 'object',
       properties: {
-        title: { type: 'STRING' },
-        due_at: { type: 'STRING', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
-        remind_at: { type: 'STRING', description: 'ISO 8601, saat dilimi ofsetli (+03:00)' },
+        title: str(),
+        due_at: str('ISO 8601, saat dilimi ofsetli (+03:00)'),
+        remind_at: str('ISO 8601, saat dilimi ofsetli (+03:00)'),
       },
       required: ['title'],
     },
   },
   {
     name: 'list_tasks',
-    description: 'Görevleri ve hatırlatmaları listeler. Varsayılan: sadece tamamlanmamışlar.',
-    parameters: { type: 'OBJECT', properties: { include_done: { type: 'BOOLEAN' } } },
+    description: 'Sahibin görevlerini ve hatırlatmalarını listeler. Varsayılan: sadece tamamlanmamışlar.',
+    inputSchema: { type: 'object', properties: { include_done: { type: 'boolean' } }, required: [] },
   },
   {
     name: 'complete_task',
     description: 'Görevi tamamlandı olarak işaretler. id list_tasks sonucundan alınır.',
-    parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
+    inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
   },
   {
     name: 'add_note',
     description: 'Kullanıcının notunu kaydeder.',
-    parameters: { type: 'OBJECT', properties: { content: { type: 'STRING' } }, required: ['content'] },
+    inputSchema: { type: 'object', properties: { content: str() }, required: ['content'] },
   },
   {
     name: 'list_notes',
     description: 'Notları listeler; query verilirse içinde arar. En yeni 20 not döner.',
-    parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' } } },
+    inputSchema: { type: 'object', properties: { query: str() }, required: [] },
+  },
+  {
+    name: 'remember',
+    description:
+      'Sahibi hakkında kalıcı bir bilgiyi, tercihi, rutini ya da kişiyi hafızana kaydeder. Sahibi böyle bir şey söylediğinde sormadan kaydet. Tek seferlik işleri kaydetme (onlar için add_task).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: str('Kısa, tek cümlelik bilgi'),
+        kind: { type: 'string', enum: ['fact', 'preference', 'routine', 'person'] },
+      },
+      required: ['content'],
+    },
+  },
+  {
+    name: 'forget',
+    description: 'Hafızandaki bir kaydı siler (yanlış ya da eskimiş bilgi). id, hafıza listesinde köşeli parantez içindedir.',
+    inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
+  },
+  {
+    name: 'list_employees',
+    description: 'Tanımlı personeli (dijital çalışanları) listeler: id, ad, unvan, bölüm.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'assign_task_to_employee',
+    description:
+      'Bir personele iş verir. Personel işi arka planda yapar ve sonucu sahibinin incelemesine sunar (Görevler sayfası). Çalışan id list_employees sonucundan alınır.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        employee_id: str(),
+        title: str('İşin kısa başlığı'),
+        description: str('Ayrıntılar, beklenen çıktı'),
+        due_at: str('ISO 8601, saat dilimi ofsetli (+03:00)'),
+      },
+      required: ['employee_id', 'title'],
+    },
+  },
+  {
+    name: 'create_employee',
+    description: 'Yeni bir personel (dijital çalışan) tanımlar. Önce list_employees ile aynı isimde biri olmadığını kontrol et.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: str(),
+        title: str('Unvan, örn. Satış Uzmanı'),
+        department: str('Bölüm, örn. Satış'),
+        responsibilities: str('Sorumlulukları'),
+      },
+      required: ['name', 'title', 'department'],
+    },
   },
 ]
 
-interface GeminiPart {
-  text?: string
-  functionCall?: { name: string; args?: Record<string, unknown> }
-  functionResponse?: { name: string; response: Record<string, unknown> }
-}
-interface GeminiContent {
-  role: 'user' | 'model'
-  parts: GeminiPart[]
-}
+const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee'])
 
 function istanbulNow(): string {
-  const d = new Date()
   const text = new Intl.DateTimeFormat('tr-TR', {
     timeZone: 'Europe/Istanbul',
     dateStyle: 'full',
     timeStyle: 'short',
-  }).format(d)
+  }).format(new Date())
   return `${text} (Europe/Istanbul, UTC+03:00)`
 }
 
-function systemPrompt(): string {
+async function systemPrompt(owner: string): Promise<string> {
+  const memories = await prisma.assistantMemory.findMany({
+    where: { ownerEmail: owner },
+    orderBy: { createdAt: 'desc' },
+    take: MEMORY_LIMIT,
+  })
+  const memoryBlock = memories.length
+    ? memories.map((m) => `- [${m.id}] (${m.kind}) ${m.content}`).join('\n')
+    : '(henüz kayıt yok)'
   return `Sen Mete'nin kişisel asistanısın. Türkçe, kısa ve net yaz.
-Görevlerin: günlük işlerini takip etmek, hatırlatma kurmak, notlarını saklamak ve planlarını özetlemek.
+Görevlerin: günlük işlerini takip etmek, hatırlatma kurmak, notlarını saklamak, planlarını özetlemek ve personele iş vermek.
 Şu an: ${istanbulNow()}. Göreli zamanları ("yarın 10'da", "2 saat sonra") bu saate göre hesapla ve araçlara +03:00 ofsetli ISO 8601 ver.
-Kayıt/silme/tamamlama gibi işlemleri yalnızca araçlarla yap; araç çalışmadan "yaptım" deme.
-Tarih/saat belirsizse tahmin etme, tek kısa soru sor.`
+Kayıt/silme/tamamlama/iş verme gibi işlemleri yalnızca araçlarla yap; araç çalışmadan "yaptım" deme.
+Tarih/saat belirsizse tahmin etme, tek kısa soru sor.
+
+Öğrenme: Sahibinin kalıcı tercihlerini, rutinlerini, çevresindeki kişileri ve işiyle ilgili sabit bilgileri fark ettiğinde remember ile kaydet. Aşağıdaki hafızayı kullanarak kişiselleştir; yanlış/eskimiş kayıt görürsen forget ile sil.
+Personel: Sahibi bir personele iş vermek isterse önce list_employees ile doğru kişiyi bul, sonra assign_task_to_employee kullan. Personel işi arka planda yapar; sonuç Görevler sayfasında sahibinin onayına düşer, sen sonucu uydurma.
+
+Hafıza:
+${memoryBlock}`
+}
+
+async function getCompanyId(): Promise<string> {
+  const company = await prisma.company.findFirstOrThrow({ orderBy: { createdAt: 'asc' }, select: { id: true } })
+  return company.id
 }
 
 function fmt(d: Date | null): string | null {
@@ -141,166 +222,61 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
       })
       return rows.map((n) => ({ id: n.id, content: n.content, createdAt: n.createdAt.toISOString() }))
     }
+    case 'remember': {
+      const p = rememberInput.parse(input)
+      const existing = await prisma.assistantMemory.findFirst({ where: { ownerEmail: owner, content: p.content } })
+      if (existing) return { id: existing.id, duplicate: true }
+      const m = await prisma.assistantMemory.create({ data: { ownerEmail: owner, content: p.content, kind: p.kind } })
+      return { id: m.id }
+    }
+    case 'forget': {
+      const p = forgetInput.parse(input)
+      const r = await prisma.assistantMemory.deleteMany({ where: { id: p.id, ownerEmail: owner } })
+      return { deleted: r.count }
+    }
+    case 'list_employees': {
+      const companyId = await getCompanyId()
+      const rows = await prisma.employee.findMany({
+        where: { companyId, status: 'ACTIVE' },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, title: true, department: true },
+      })
+      return rows
+    }
+    case 'assign_task_to_employee': {
+      const p = assignInput.parse(input)
+      const companyId = await getCompanyId()
+      const emp = await prisma.employee.findFirst({ where: { id: p.employee_id, companyId, status: 'ACTIVE' } })
+      if (!emp) throw new Error('Çalışan bulunamadı')
+      const taskId = await assignTaskToEmployee({
+        employeeId: emp.id,
+        title: p.title,
+        description: p.description,
+        dueDate: p.due_at ? new Date(p.due_at) : undefined,
+      })
+      return { taskId, employee: emp.name, status: 'Arka planda çalışıyor; sonuç Görevler sayfasında incelemeye düşecek' }
+    }
+    case 'create_employee': {
+      const p = createEmployeeInput.parse(input)
+      const companyId = await getCompanyId()
+      const emp = await prisma.employee.create({
+        data: {
+          companyId,
+          name: p.name,
+          title: p.title,
+          department: p.department,
+          responsibilities: p.responsibilities,
+          permissions: JSON.stringify(['CAN_UPDATE_TASKS']),
+        },
+      })
+      await prisma.auditLog.create({
+        data: { companyId, action: 'EMPLOYEE_CREATED', entityType: 'Employee', entityId: emp.id, changes: JSON.stringify(p) },
+      })
+      return { id: emp.id, name: emp.name }
+    }
     default:
       throw new Error(`Bilinmeyen araç: ${name}`)
   }
-}
-
-const REQUEST_TIMEOUT_MS = 12_000
-const RETRYABLE = new Set([429, 500, 503, 504])
-// Hızlı, düşünmesi kapalı modeller önce; ilk yanıt veren kazanır.
-const FALLBACK_MODELS = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-3.8-flash']
-
-// Model yoğun (503/429), zaman aşımında ya da bulunamazsa (404) sıradaki modele geçer.
-// Düşünme kapalı istenir (gecikmeyi kısaltır); model bu alanı reddederse (400) alansız yeniden denenir.
-async function callGemini(apiKey: string, preferred: string | undefined, body: Record<string, unknown>): Promise<Response> {
-  const models = [...new Set([preferred, ...FALLBACK_MODELS].filter((m): m is string => !!m))]
-  let last = 'Gemini yanıt vermedi'
-  for (const model of models) {
-    for (const thinkingOff of [true, false]) {
-      const gen = (body.generationConfig ?? {}) as Record<string, unknown>
-      const payload = thinkingOff ? { ...body, generationConfig: { ...gen, thinkingConfig: { thinkingBudget: 0 } } } : body
-      const t0 = Date.now()
-      let res: Response
-      try {
-        res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        })
-      } catch {
-        console.warn(`gemini ${model} timeout ${Date.now() - t0}ms`)
-        last = `Gemini zaman aşımı (${model})`
-        break
-      }
-      console.log(`gemini ${model} thinkingOff=${thinkingOff} status=${res.status} ${Date.now() - t0}ms`)
-      if (res.ok) return res
-      last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
-      if (res.status === 400 && thinkingOff) continue
-      if (res.status !== 404 && !RETRYABLE.has(res.status)) throw new Error(last)
-      break
-    }
-  }
-  throw new Error(last)
-}
-
-type HistoryItem = { role: string; content: string }
-type ToolRunner = (name: string, args: unknown) => Promise<unknown>
-
-const GITHUB_MODELS_URL = 'https://models.github.ai/inference/chat/completions'
-const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note'])
-
-async function geminiTurn(
-  history: HistoryItem[],
-  userText: string,
-  run: ToolRunner
-): Promise<string> {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  if (!apiKey) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY tanımlı değil')
-  const contents: GeminiContent[] = history.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }))
-  contents.push({ role: 'user', parts: [{ text: userText }] })
-
-  let reply = ''
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await callGemini(apiKey, process.env.GEMINI_MODEL, {
-      systemInstruction: { parts: [{ text: systemPrompt() }] },
-      contents,
-      tools: [{ functionDeclarations }],
-      generationConfig: { maxOutputTokens: 1500 },
-    })
-    const data = await res.json()
-    const parts: GeminiPart[] = data.candidates?.[0]?.content?.parts ?? []
-    reply = parts.map((p) => p.text ?? '').join('')
-
-    const calls = parts.filter((p) => p.functionCall)
-    if (calls.length === 0) break
-
-    contents.push({ role: 'model', parts })
-    const responses: GeminiPart[] = []
-    for (const p of calls) {
-      const { name, args } = p.functionCall!
-      try {
-        responses.push({ functionResponse: { name, response: { result: await run(name, args ?? {}) } } })
-      } catch (e) {
-        responses.push({
-          functionResponse: { name, response: { error: e instanceof Error ? e.message : 'Araç hatası' } },
-        })
-      }
-    }
-    contents.push({ role: 'user', parts: responses })
-  }
-  return reply
-}
-
-// Gemini şemasındaki (BÜYÜK HARFLİ) tipleri OpenAI/JSON Schema biçimine çevirir.
-function toJsonSchema(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(toJsonSchema)
-  if (node && typeof node === 'object') {
-    return Object.fromEntries(
-      Object.entries(node).map(([k, v]) => [k, k === 'type' && typeof v === 'string' ? v.toLowerCase() : toJsonSchema(v)])
-    )
-  }
-  return node
-}
-
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
-  tool_calls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[]
-  tool_call_id?: string
-}
-
-async function githubModelsTurn(
-  token: string,
-  history: HistoryItem[],
-  userText: string,
-  run: ToolRunner
-): Promise<string> {
-  const model = process.env.GITHUB_MODELS_MODEL || 'openai/gpt-4.1-mini'
-  const tools = functionDeclarations.map((f) => ({
-    type: 'function',
-    function: { name: f.name, description: f.description, parameters: toJsonSchema(f.parameters) },
-  }))
-  const messages: OpenAIMessage[] = [
-    { role: 'system', content: systemPrompt() },
-    ...history.map((m): OpenAIMessage => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
-    { role: 'user', content: userText },
-  ]
-
-  let reply = ''
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch(GITHUB_MODELS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      body: JSON.stringify({ model, messages, tools, max_tokens: 1500 }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    })
-    if (!res.ok) throw new Error(`GitHub Models ${res.status}: ${(await res.text()).slice(0, 300)}`)
-    const msg: OpenAIMessage | undefined = (await res.json()).choices?.[0]?.message
-    reply = msg?.content ?? ''
-    const calls = msg?.tool_calls ?? []
-    if (calls.length === 0) break
-
-    messages.push({ role: 'assistant', content: msg?.content ?? null, tool_calls: calls })
-    for (const c of calls) {
-      let content: string
-      try {
-        content = JSON.stringify(await run(c.function.name, JSON.parse(c.function.arguments || '{}')))
-      } catch (e) {
-        content = JSON.stringify({ error: e instanceof Error ? e.message : 'Araç hatası' })
-      }
-      messages.push({ role: 'tool', tool_call_id: c.id, content })
-    }
-  }
-  return reply
 }
 
 export async function chatWithAssistant(owner: string, userText: string): Promise<string> {
@@ -309,30 +285,20 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
     orderBy: { createdAt: 'desc' },
     take: HISTORY_LIMIT,
   })
-  const history = past.reverse()
 
-  // Kaydedici araçlar çalıştıysa sağlayıcı değiştirilmez (aynı işlem iki kez yazılmasın).
-  const done: string[] = []
-  const run: ToolRunner = async (name, args) => {
-    const out = await runTool(owner, name, args)
-    if (MUTATING_TOOLS.has(name)) done.push(`${name}: ${JSON.stringify(out)}`)
-    return out
-  }
-
-  let reply = ''
-  try {
-    reply = await geminiTurn(history, userText, run)
-  } catch (primaryError) {
-    console.error('gemini turn failed', primaryError)
-    const token = process.env.GITHUB_MODELS_TOKEN
-    if (done.length > 0) {
-      reply = 'İşlemi kaydettim ama yanıtı oluşturamadım. Sağ paneldeki listeden kontrol edebilirsin.'
-    } else if (token) {
-      reply = await githubModelsTurn(token, history, userText, run)
-    } else {
-      throw primaryError
-    }
-  }
+  let mutated = false
+  let reply = await runAgent({
+    system: await systemPrompt(owner),
+    history: past.reverse(),
+    userText,
+    tools,
+    run: async (name, args) => {
+      const out = await runTool(owner, name, args)
+      if (MUTATING_TOOLS.has(name)) mutated = true
+      return out
+    },
+    hasSideEffects: () => mutated,
+  })
 
   reply = reply || 'Bir yanıt üretemedim, tekrar dener misin?'
   // Aynı createdAt sıralamayı belirsiz yapmasın diye yanıt 1 ms sonraya yazılır.

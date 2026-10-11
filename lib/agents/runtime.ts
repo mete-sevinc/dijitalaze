@@ -3,7 +3,8 @@ import { createAIProvider } from '@/lib/ai/provider'
 import { AIMessage } from '@/lib/types'
 import { agentTools } from './tools'
 import { contextBuilder } from './context-builder'
-import { executeToolAction } from './tool-executor'
+import { runAgent } from '@/lib/ai/agent-loop'
+import { buildEmployeeRunner } from './work'
 
 export class AgentRuntime {
   private aiProvider = createAIProvider()
@@ -48,45 +49,32 @@ export class AgentRuntime {
       },
     })
 
-    // Build conversation history
-    const conversationHistory: AIMessage[] = conversation.messages.map((msg: { role: string; content: string }) => ({
-      role: msg.role as 'user' | 'assistant' | 'system',
+    // Build conversation history (son mesaj hariç; ortak ajan döngüsü ekler)
+    const history = conversation.messages.map((msg: { role: string; content: string }) => ({
+      role: msg.role.toLowerCase(),
       content: msg.content,
     }))
+    const conversationHistory: AIMessage[] = history.map((h) => ({
+      role: h.role as 'user' | 'assistant' | 'system',
+      content: h.content,
+    }))
+    conversationHistory.push({ role: 'user', content: userMessage })
 
-    conversationHistory.push({
-      role: 'user',
-      content: userMessage,
-    })
-
-    // Build context
+    // Build context + system prompt
     const context = await contextBuilder.buildContext(employeeId, companyId, conversationHistory)
-
-    // Build system prompt
     const systemPrompt = contextBuilder.buildSystemPrompt(context)
 
-    // Call AI
-    const response = await this.aiProvider.sendMessage(
-      [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        ...conversationHistory,
-      ],
-      agentTools
-    )
-
-    // Handle tool uses
-    const finalResponse = response.content
-    if (response.toolUses && response.toolUses.length > 0) {
-      for (const toolUse of response.toolUses) {
-        const toolResult = await executeToolAction(toolUse.name, toolUse.input, context)
-        if (toolResult.error) {
-          console.error(`Tool error: ${toolResult.error}`)
-        }
-      }
-    }
+    // Ortak ajan döngüsü: araç sonuçları modele geri verilir, onay gerektirenler Approval olur
+    const { run, hasSideEffects } = buildEmployeeRunner(context, companyId)
+    const finalResponse =
+      (await runAgent({
+        system: systemPrompt,
+        history: history.filter((h) => h.role === 'user' || h.role === 'assistant'),
+        userText: userMessage,
+        tools: agentTools,
+        run,
+        hasSideEffects,
+      })) || 'Bir yanıt üretemedim, tekrar dener misin?'
 
     // Save assistant message
     await prisma.message.create({
@@ -94,10 +82,6 @@ export class AgentRuntime {
         conversationId: conversation.id,
         role: 'ASSISTANT',
         content: finalResponse,
-        metadata: JSON.stringify({
-          toolUses: response.toolUses,
-          stopReason: response.stopReason,
-        }),
       },
     })
 

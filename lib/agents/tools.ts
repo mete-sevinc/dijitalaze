@@ -186,6 +186,9 @@ export const agentTools: AITool[] = [
   },
 ]
 
+// İnsan onayı gerektiren araçlar: ajan çağırınca Approval kaydı açılır, sahibi onaylayınca uygulanır.
+export const GATED_TOOLS = new Set(['create_task', 'create_meeting_action'])
+
 export function getToolByName(name: string): AITool | undefined {
   return agentTools.find((tool) => tool.name === name)
 }

@@ -85,6 +85,7 @@ export async function createEmployee(companyId: string, input: z.infer<typeof cr
       data: {
         companyId,
         ...validated,
+        permissions: JSON.stringify(['CAN_UPDATE_TASKS']),
       },
     })
 
