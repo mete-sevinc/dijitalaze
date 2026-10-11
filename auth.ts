@@ -13,7 +13,7 @@ const allowedEmails = (process.env.AUTH_ALLOWED_EMAIL ?? '')
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [MicrosoftEntraID({ authorization: { params: { scope: MAIL_SCOPE } } })],
   session: { strategy: 'jwt' },
-  pages: { error: '/giris-hatasi' },
+  pages: { signIn: '/giris', error: '/giris-hatasi' },
   callbacks: {
     // Fail closed: no configured address means nobody gets in.
     async signIn({ profile, account }) {

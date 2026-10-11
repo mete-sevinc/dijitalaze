@@ -3,9 +3,11 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { auth, signOut } from '@/auth'
 import { ReminderWatcher } from '@/components/reminder-watcher'
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const session = await auth()
   return (
     <div className="flex h-full">
       {/* Sidebar */}
@@ -39,9 +41,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div />
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <button className="text-sm px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded">
-              Profil
-            </button>
+            <span className="text-sm text-slate-600">{session?.user?.email}</span>
+            <form
+              action={async () => {
+                'use server'
+                await signOut({ redirectTo: '/giris' })
+              }}
+            >
+              <button className="text-sm px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded">Çıkış yap</button>
+            </form>
           </div>
         </header>
 
