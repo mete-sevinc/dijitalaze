@@ -22,11 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   logger: {
     // Microsoft'un AADSTS hata kodunu görünür kılar; yalnızca izinli alanlar yazılır (token/claim yok).
     error(error) {
-      const e = error as Error & { cause?: { err?: Error & { error?: string; error_description?: string; cause?: unknown } } }
-      const inner = e.cause?.err
-      const c = inner?.cause && typeof inner.cause === 'object' ? (inner.cause as Record<string, unknown>) : undefined
-      const safe = c ? { error: c.error, error_codes: c.error_codes, trace_id: c.trace_id, correlation_id: c.correlation_id } : undefined
-      console.error(`[auth-debug] ${e.name} ${inner?.error ?? ''} ${(inner?.error_description ?? '').split('\n')[0]} ${safe ? JSON.stringify(safe) : ''}`)
+      const c = (error as { cause?: Record<string, unknown> }).cause ?? {}
+      const desc = String(c.error_description ?? '').split('\n')[0].slice(0, 300)
+      console.error(`[auth-debug] ${error.message} | ${String(c.error ?? '')} ${JSON.stringify(c.error_codes ?? '')} ${desc}`)
     },
   },
   session: { strategy: 'jwt' },
