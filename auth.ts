@@ -26,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const inner = e.cause?.err
       const c = inner?.cause && typeof inner.cause === 'object' ? (inner.cause as Record<string, unknown>) : undefined
       const safe = c ? { error: c.error, error_codes: c.error_codes, trace_id: c.trace_id, correlation_id: c.correlation_id } : undefined
-      console.error('[auth]', e.name, inner?.error ?? '', (inner?.error_description ?? '').split('\n')[0], safe ? JSON.stringify(safe) : '')
+      console.error(`[auth-debug] ${e.name} ${inner?.error ?? ''} ${(inner?.error_description ?? '').split('\n')[0]} ${safe ? JSON.stringify(safe) : ''}`)
     },
   },
   session: { strategy: 'jwt' },
