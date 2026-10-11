@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
-import { assignTaskToEmployee, resolveEmployeeApproval, reviewEmployeeTask } from '@/lib/agents/work'
+import { assignTaskToEmployee, resolveEmployeeApproval, retryEmployeeTask, reviewEmployeeTask } from '@/lib/agents/work'
 
 const idSchema = z.string().min(1).max(64)
 const textSchema = z.string().trim().min(1).max(4000)
@@ -61,6 +61,18 @@ export async function resolveApproval(approvalId: string, approve: boolean, note
   if (!parsed.success) return { success: false as const, error: 'Geçersiz bilgi' }
   try {
     await resolveEmployeeApproval(parsed.data.id, approve, parsed.data.note)
+    return { success: true as const }
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : 'İşlem başarısız' }
+  }
+}
+
+export async function retryTask(taskId: string) {
+  await requireAuth()
+  const parsed = idSchema.safeParse(taskId)
+  if (!parsed.success) return { success: false as const, error: 'Geçersiz bilgi' }
+  try {
+    await retryEmployeeTask(parsed.data)
     return { success: true as const }
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : 'İşlem başarısız' }

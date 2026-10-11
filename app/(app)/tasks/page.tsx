@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getTasks } from '@/app/actions/tasks'
 import { getEmployees } from '@/app/actions/employees'
-import { assignTask, getPendingApprovals, resolveApproval, reviewTask } from '@/app/actions/work'
+import { assignTask, getPendingApprovals, resolveApproval, retryTask, reviewTask } from '@/app/actions/work'
 
 interface Task {
   id: string
@@ -103,6 +103,7 @@ export default function TasksPage() {
   }
 
   const inReview = tasks.filter((t) => t.status === 'REVIEW')
+  const blocked = tasks.filter((t) => t.status === 'BLOCKED' && t.result)
 
   return (
     <div className="p-8 space-y-8">
@@ -177,6 +178,21 @@ export default function TasksPage() {
                   <input id={`rev-${t.id}`} value={notes[t.id] ?? ''} onChange={(e) => setNotes((n) => ({ ...n, [t.id]: e.target.value }))} placeholder="Not / düzeltme isteği" className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-48" />
                   <button disabled={busy === t.id || !(notes[t.id] ?? '').trim()} onClick={() => run(t.id, () => reviewTask(t.id, 'revise', notes[t.id]))} className="px-3 py-1.5 border border-slate-300 rounded text-sm disabled:opacity-50">Düzelt</button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {blocked.length > 0 && (
+        <section className="bg-red-50 border border-red-200 rounded-lg p-6 space-y-3">
+          <h2 className="text-xl font-semibold text-red-900">Takılan işler ({blocked.length})</h2>
+          <ul className="space-y-3">
+            {blocked.map((t) => (
+              <li key={t.id} className="bg-white rounded border border-red-200 p-4 space-y-2">
+                <p className="text-sm font-medium text-slate-900">{t.assignee?.name ?? '—'}: {t.title}</p>
+                <p className="text-xs text-red-700 whitespace-pre-wrap break-words">{t.result}</p>
+                <button disabled={busy === t.id} onClick={() => run(t.id, () => retryTask(t.id))} className="px-3 py-1.5 border border-slate-300 rounded text-sm disabled:opacity-50">Tekrar dene</button>
               </li>
             ))}
           </ul>

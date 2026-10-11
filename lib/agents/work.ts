@@ -64,7 +64,7 @@ Sahibin sana bir iş verdi. Gerekirse araçları kullan, sonra teslim edeceğin 
     console.error('employee task run failed', e)
     await prisma.task.update({
       where: { id: taskId },
-      data: { status: 'BLOCKED', result: 'Çalıştırılamadı, tekrar dene.' },
+      data: { status: 'BLOCKED', result: `Çalıştırılamadı: ${e instanceof Error ? e.message.slice(0, 400) : 'bilinmeyen hata'}` },
     })
   }
 }
@@ -159,4 +159,13 @@ export async function resolveEmployeeApproval(approvalId: string, approve: boole
       changes: JSON.stringify({ action: approval.action, note }),
     },
   })
+}
+
+export async function retryEmployeeTask(taskId: string) {
+  const claimed = await prisma.task.updateMany({
+    where: { id: taskId, status: 'BLOCKED', assigneeId: { not: null } },
+    data: { status: 'TODO', result: null },
+  })
+  if (claimed.count === 0) throw new Error('Görev tekrar denenemez')
+  after(() => runEmployeeOnTask(taskId))
 }

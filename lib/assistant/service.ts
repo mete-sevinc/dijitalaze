@@ -259,6 +259,11 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
     case 'create_employee': {
       const p = createEmployeeInput.parse(input)
       const companyId = await getCompanyId()
+      const dup = await prisma.employee.findFirst({
+        where: { companyId, name: { contains: p.name.split(' ')[0], mode: 'insensitive' } },
+        select: { id: true, name: true, title: true },
+      })
+      if (dup) throw new Error(`Benzer isimde personel zaten var: ${dup.name} (${dup.title}), id ${dup.id}. Yeni oluşturma, onu kullan.`)
       const emp = await prisma.employee.create({
         data: {
           companyId,
