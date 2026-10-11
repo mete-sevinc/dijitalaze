@@ -20,10 +20,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   logger: {
-    // Microsoft'un AADSTS hata kodunu görünür kılar (gizli değer içermez).
+    // Microsoft'un AADSTS hata kodunu tek satırda görünür kılar (gizli değer içermez).
     error(error) {
-      const err = (error as { cause?: { err?: { error?: string; error_description?: string } } }).cause?.err
-      console.error('[auth]', error.name, err?.error ?? '', (err?.error_description ?? '').split('\n')[0])
+      const e = error as Error & { cause?: { err?: Error & { error?: string; error_description?: string; cause?: unknown } } }
+      const inner = e.cause?.err
+      const body = inner?.cause && typeof inner.cause === 'object' ? JSON.stringify(inner.cause).slice(0, 600) : ''
+      console.error(`[auth-debug] ${e.name}: ${e.message} | ${inner?.error ?? ''} ${(inner?.error_description ?? '').split('\n')[0]} ${body}`)
     },
   },
   session: { strategy: 'jwt' },
