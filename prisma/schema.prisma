@@ -423,3 +423,30 @@ model AssistantMemory {
 
   @@index([ownerEmail, createdAt])
 }
+
+// Sahibin Microsoft hesabı adına Graph ile mail göndermek için yenileme belirteci (AES-GCM ile şifreli).
+model AssistantMailAccount {
+  ownerEmail   String   @id
+  refreshToken String
+  updatedAt    DateTime @updatedAt
+}
+
+// Asistanın hazırladığı/zamanladığı e-postalar. status: DRAFT | SCHEDULED | SENDING | SENT | FAILED
+model AssistantEmail {
+  id          String    @id @default(cuid())
+  ownerEmail  String
+  toEmails    String // virgülle ayrılmış
+  ccEmails    String?
+  subject     String
+  body        String
+  status      String    @default("DRAFT")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  error       String?
+  attempts    Int       @default(0)
+  sendingAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([ownerEmail, status])
+  @@index([status, scheduledAt])
+}

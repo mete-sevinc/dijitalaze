@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
+  cancelAssistantEmail,
   completeAssistantTask,
   deleteAssistantMemory,
   deleteAssistantNote,
@@ -14,6 +15,7 @@ import { PushToggle } from '@/components/push-toggle'
 type Msg = { id: string; role: string; content: string }
 type Task = { id: string; title: string; dueAt: string | null; remindAt: string | null }
 type Note = { id: string; content: string }
+type Mail = { id: string; to: string; subject: string; status: string; scheduledAt: string | null; error: string | null }
 type Memory = { id: string; content: string; kind: string }
 
 const dt = new Intl.DateTimeFormat('tr-TR', {
@@ -24,11 +26,21 @@ const dt = new Intl.DateTimeFormat('tr-TR', {
   minute: '2-digit',
 })
 
+const mailStatus: Record<string, string> = {
+  DRAFT: 'Taslak',
+  SCHEDULED: 'Zamanlandı',
+  SENDING: 'Gönderiliyor',
+  SENT: 'Gönderildi',
+  FAILED: 'Başarısız',
+}
+
 export default function AssistantPage() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [memories, setMemories] = useState<Memory[]>([])
+  const [emails, setEmails] = useState<Mail[]>([])
+  const [mailConnected, setMailConnected] = useState(true)
   const [input, setInput] = useState('')
   const [noteQuery, setNoteQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -44,6 +56,8 @@ export default function AssistantPage() {
     setTasks(s.tasks)
     setNotes(s.notes)
     setMemories(s.memories)
+    setEmails(s.emails)
+    setMailConnected(s.mailConnected)
   }
 
   useEffect(() => {
@@ -54,6 +68,8 @@ export default function AssistantPage() {
         setTasks(s.tasks)
         setNotes(s.notes)
         setMemories(s.memories)
+        setEmails(s.emails)
+        setMailConnected(s.mailConnected)
       } catch {
         setError('Veriler yüklenemedi')
       }
@@ -95,6 +111,11 @@ export default function AssistantPage() {
   async function forgetMemory(id: string) {
     const res = await deleteAssistantMemory(id)
     if (res.success) setMemories((m) => m.filter((x) => x.id !== id))
+  }
+
+  async function cancelMail(id: string) {
+    const res = await cancelAssistantEmail(id)
+    if (res.success) setEmails((m) => m.filter((x) => x.id !== id))
   }
 
   async function done(id: string) {
@@ -163,6 +184,35 @@ export default function AssistantPage() {
                       {t.remindAt && `⏰ ${dt.format(new Date(t.remindAt))}`}
                     </p>
                   </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section className="bg-white border border-slate-200 rounded p-4">
+          <h2 className="font-semibold text-slate-900 mb-3">E-postalar</h2>
+          {!mailConnected && (
+            <p className="text-xs text-amber-700 mb-3" role="status">
+              Mail gönderme yetkisi yok. Çıkış yapıp Microsoft ile yeniden giriş yapın.
+            </p>
+          )}
+          {emails.length === 0 ? (
+            <p className="text-sm text-slate-500">Taslak veya zamanlı mail yok.</p>
+          ) : (
+            <ul className="space-y-2 max-h-72 overflow-auto">
+              {emails.map((m) => (
+                <li key={m.id} className="text-sm text-slate-700">
+                  <p className="text-slate-900">{m.subject}</p>
+                  <p className="text-xs text-slate-500">
+                    {m.to} · {mailStatus[m.status] ?? m.status}
+                    {m.status === 'SCHEDULED' && m.scheduledAt && ` ${dt.format(new Date(m.scheduledAt))}`}
+                  </p>
+                  {m.error && <p className="text-xs text-red-600">{m.error}</p>}
+                  {['DRAFT', 'SCHEDULED', 'FAILED'].includes(m.status) && (
+                    <button onClick={() => cancelMail(m.id)} className="text-xs underline text-red-600" aria-label={`İptal et: ${m.subject}`}>
+                      İptal et
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

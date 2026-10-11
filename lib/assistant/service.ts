@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { runAgent, ToolSpec } from '@/lib/ai/agent-loop'
 import { assignTaskToEmployee } from '@/lib/agents/work'
+import { sendDraftNow } from './emails'
+import { hasMailAccount } from './mail'
 
 const HISTORY_LIMIT = 20
 const MEMORY_LIMIT = 40
@@ -34,6 +36,20 @@ const createEmployeeInput = z.object({
   department: z.string().trim().min(1).max(100),
   responsibilities: z.string().max(2000).optional(),
 })
+
+const emailList = z.string().trim().min(1).max(500).refine(
+  (v) => v.split(',').every((a) => z.string().email().safeParse(a.trim()).success),
+  'Geçersiz e-posta adresi'
+)
+const draftEmailInput = z.object({
+  to: emailList,
+  cc: emailList.optional(),
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(20000),
+})
+const updateEmailInput = draftEmailInput.partial().extend({ id: z.string().min(1) })
+const scheduleEmailInput = z.object({ id: z.string().min(1), send_at: isoDate })
+const emailIdInput = z.object({ id: z.string().min(1) })
 
 const str = (description?: string) => ({ type: 'string', ...(description ? { description } : {}) })
 
@@ -124,9 +140,59 @@ const tools: ToolSpec[] = [
       required: ['name', 'title', 'department'],
     },
   },
+  {
+    name: 'draft_email',
+    description:
+      'Sahibin adına bir e-posta TASLAĞI oluşturur (göndermez). Taslağı sahibine göster; gönderme/zamanlama için onayını bekle.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        to: str('Alıcı adres(ler)i, virgülle ayrılmış'),
+        cc: str('Bilgi adres(ler)i, virgülle ayrılmış'),
+        subject: str(),
+        body: str('Düz metin gövde, selamlama ve imza dahil'),
+      },
+      required: ['to', 'subject', 'body'],
+    },
+  },
+  {
+    name: 'update_email_draft',
+    description: 'Gönderilmemiş taslak/zamanlı bir mailin alanlarını değiştirir (zamanlı mail taslağa döner; yeniden onay gerekir).',
+    inputSchema: {
+      type: 'object',
+      properties: { id: str(), to: str(), cc: str(), subject: str(), body: str() },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'schedule_email',
+    description:
+      'Taslağı belirtilen zamanda göndermek üzere zamanlar. Yalnızca sahibi taslağı gördükten ve zamanı onayladıktan SONRA, taslağı oluşturduğun mesajdan sonraki bir mesajda çağır.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: str(), send_at: str('ISO 8601, saat dilimi ofsetli (+03:00)') },
+      required: ['id', 'send_at'],
+    },
+  },
+  {
+    name: 'send_email',
+    description:
+      'Taslağı hemen gönderir (geri alınamaz). Yalnızca sahibi taslağı gördükten ve "gönder" dedikten SONRA, taslağı oluşturduğun mesajdan sonraki bir mesajda çağır.',
+    inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
+  },
+  {
+    name: 'cancel_email',
+    description: 'Gönderilmemiş taslağı ya da zamanlı maili iptal eder (siler).',
+    inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
+  },
+  {
+    name: 'list_emails',
+    description: 'Taslak, zamanlı, gönderilen ve başarısız mailleri listeler (en yeni 20).',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
 ]
 
-const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee'])
+const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee', 'draft_email', 'update_email_draft', 'schedule_email', 'send_email', 'cancel_email'])
 
 function istanbulNow(): string {
   const text = new Intl.DateTimeFormat('tr-TR', {
@@ -150,6 +216,7 @@ async function systemPrompt(owner: string): Promise<string> {
 Görevlerin: günlük işlerini takip etmek, hatırlatma kurmak, notlarını saklamak, planlarını özetlemek ve personele iş vermek.
 Şu an: ${istanbulNow()}. Göreli zamanları ("yarın 10'da", "2 saat sonra") bu saate göre hesapla ve araçlara +03:00 ofsetli ISO 8601 ver.
 Kayıt/silme/tamamlama/iş verme gibi işlemleri yalnızca araçlarla yap; araç çalışmadan "yaptım" deme.
+E-posta: Sahibi adına mail yazman istenirse önce draft_email ile taslak oluştur ve alıcı/konu/metni sahibine göster. Göndermeden ya da zamanlamadan önce sahibinin açık onayını bekle ("gönder", "yarın 09:00'da gönder" gibi); onay gelince aynı taslağı schedule_email veya send_email ile işle. Alıcı adresini tahmin etme, bilmiyorsan sor.
 Tarih/saat belirsizse tahmin etme, tek kısa soru sor.
 
 Öğrenme: Sahibinin kalıcı tercihlerini, rutinlerini, çevresindeki kişileri ve işiyle ilgili sabit bilgileri fark ettiğinde remember ile kaydet. Aşağıdaki hafızayı kullanarak kişiselleştir; yanlış/eskimiş kayıt görürsen forget ile sil.
@@ -168,7 +235,7 @@ function fmt(d: Date | null): string | null {
   return d ? d.toISOString() : null
 }
 
-async function runTool(owner: string, name: string, input: unknown): Promise<unknown> {
+async function runTool(owner: string, name: string, input: unknown, draftedThisTurn: Set<string>): Promise<unknown> {
   switch (name) {
     case 'add_task': {
       const p = addTaskInput.parse(input)
@@ -279,6 +346,72 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
       })
       return { id: emp.id, name: emp.name }
     }
+    case 'draft_email': {
+      const p = draftEmailInput.parse(input)
+      const m = await prisma.assistantEmail.create({
+        data: { ownerEmail: owner, toEmails: p.to, ccEmails: p.cc, subject: p.subject, body: p.body },
+      })
+      draftedThisTurn.add(m.id)
+      return { id: m.id, status: 'DRAFT', note: 'Gönderilmedi. Sahibine göster, onay iste.' }
+    }
+    case 'update_email_draft': {
+      const p = updateEmailInput.parse(input)
+      const { id, to, cc, subject, body } = p
+      const r = await prisma.assistantEmail.updateMany({
+        where: { id, ownerEmail: owner, status: { in: ['DRAFT', 'SCHEDULED'] } },
+        data: {
+          status: 'DRAFT',
+          scheduledAt: null,
+          ...(to && { toEmails: to }),
+          ...(cc && { ccEmails: cc }),
+          ...(subject && { subject }),
+          ...(body && { body }),
+        },
+      })
+      draftedThisTurn.add(id)
+      return { updated: r.count }
+    }
+    case 'schedule_email': {
+      const p = scheduleEmailInput.parse(input)
+      if (draftedThisTurn.has(p.id)) throw new Error('Taslak bu mesajda hazırlandı; önce sahibine göster ve onayını bekle.')
+      const at = new Date(p.send_at)
+      if (at.getTime() < Date.now() + 30_000) throw new Error('Gönderim zamanı gelecekte olmalı')
+      if (!(await hasMailAccount(owner))) throw new Error('Mail yetkisi yok: sahibi çıkış yapıp Microsoft ile yeniden giriş yapmalı')
+      const r = await prisma.assistantEmail.updateMany({
+        where: { id: p.id, ownerEmail: owner, status: { in: ['DRAFT', 'SCHEDULED'] } },
+        data: { status: 'SCHEDULED', scheduledAt: at, attempts: 0, error: null },
+      })
+      if (r.count === 0) throw new Error('Taslak bulunamadı')
+      return { scheduled: true, sendAt: at.toISOString() }
+    }
+    case 'send_email': {
+      const p = emailIdInput.parse(input)
+      if (draftedThisTurn.has(p.id)) throw new Error('Taslak bu mesajda hazırlandı; önce sahibine göster ve onayını bekle.')
+      if (!(await hasMailAccount(owner))) throw new Error('Mail yetkisi yok: sahibi çıkış yapıp Microsoft ile yeniden giriş yapmalı')
+      const owned = await prisma.assistantEmail.findFirst({ where: { id: p.id, ownerEmail: owner, status: 'DRAFT' } })
+      if (!owned) throw new Error('Gönderilebilir taslak bulunamadı')
+      const r = await sendDraftNow(p.id)
+      if (!r.ok) throw new Error(`Gönderilemedi: ${r.error}`)
+      return { sent: true }
+    }
+    case 'cancel_email': {
+      const p = emailIdInput.parse(input)
+      const r = await prisma.assistantEmail.deleteMany({
+        where: { id: p.id, ownerEmail: owner, status: { in: ['DRAFT', 'SCHEDULED', 'FAILED'] } },
+      })
+      return { cancelled: r.count }
+    }
+    case 'list_emails': {
+      const rows = await prisma.assistantEmail.findMany({
+        where: { ownerEmail: owner },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      })
+      return rows.map((m) => ({
+        id: m.id, to: m.toEmails, cc: m.ccEmails, subject: m.subject, body: m.body.slice(0, 500),
+        status: m.status, scheduledAt: fmt(m.scheduledAt), sentAt: fmt(m.sentAt), error: m.error,
+      }))
+    }
     default:
       throw new Error(`Bilinmeyen araç: ${name}`)
   }
@@ -292,13 +425,14 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
   })
 
   let mutated = false
+  const draftedThisTurn = new Set<string>()
   let reply = await runAgent({
     system: await systemPrompt(owner),
     history: past.reverse(),
     userText,
     tools,
     run: async (name, args) => {
-      const out = await runTool(owner, name, args)
+      const out = await runTool(owner, name, args, draftedThisTurn)
       if (MUTATING_TOOLS.has(name)) mutated = true
       return out
     },

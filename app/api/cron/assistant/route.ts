@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
+import { sendDueEmails } from '@/lib/assistant/emails'
 import { sendDailyBriefs, sendDueReminders } from '@/lib/assistant/jobs'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   if (job === 'brief') {
     const reminders = await sendDueReminders()
     const briefs = await sendDailyBriefs()
-    return Response.json({ reminders, briefs })
+    return Response.json({ reminders, briefs, emails: await sendDueEmails() })
   }
-  return Response.json({ reminders: await sendDueReminders() })
+  return Response.json({ reminders: await sendDueReminders(), emails: await sendDueEmails() })
 }

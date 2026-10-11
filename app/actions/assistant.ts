@@ -27,7 +27,7 @@ export async function sendAssistantMessage(content: string) {
 
 export async function getAssistantState() {
   const email = await owner()
-  const [messages, tasks, notes, memories] = await Promise.all([
+  const [messages, tasks, notes, memories, emails, mailAccount] = await Promise.all([
     prisma.assistantMessage.findMany({
       where: { ownerEmail: email },
       orderBy: { createdAt: 'desc' },
@@ -48,8 +48,23 @@ export async function getAssistantState() {
       orderBy: { createdAt: 'desc' },
       take: 100,
     }),
+    prisma.assistantEmail.findMany({
+      where: { ownerEmail: email },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+    }),
+    prisma.assistantMailAccount.count({ where: { ownerEmail: email } }),
   ])
   return {
+    mailConnected: mailAccount > 0,
+    emails: emails.map((m) => ({
+      id: m.id,
+      to: m.toEmails,
+      subject: m.subject,
+      status: m.status,
+      scheduledAt: m.scheduledAt?.toISOString() ?? null,
+      error: m.error,
+    })),
     messages: messages.reverse().map((m) => ({ id: m.id, role: m.role, content: m.content })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -133,5 +148,13 @@ export async function removePushSubscription(endpoint: string) {
 export async function deleteAssistantMemory(id: string) {
   const email = await owner()
   const r = await prisma.assistantMemory.deleteMany({ where: { id, ownerEmail: email } })
+  return { success: r.count > 0 }
+}
+
+export async function cancelAssistantEmail(id: string) {
+  const email = await owner()
+  const r = await prisma.assistantEmail.deleteMany({
+    where: { id, ownerEmail: email, status: { in: ['DRAFT', 'SCHEDULED', 'FAILED'] } },
+  })
   return { success: r.count > 0 }
 }

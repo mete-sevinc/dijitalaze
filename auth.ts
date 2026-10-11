@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
+import { MAIL_SCOPE, saveRefreshToken } from '@/lib/assistant/mail'
 
 // Env: AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET,
 // AUTH_MICROSOFT_ENTRA_ID_ISSUER (https://login.microsoftonline.com/<tenant-id>/v2.0), AUTH_ALLOWED_EMAIL
@@ -10,14 +11,23 @@ const allowedEmails = (process.env.AUTH_ALLOWED_EMAIL ?? '')
   .filter(Boolean)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [MicrosoftEntraID],
+  providers: [MicrosoftEntraID({ authorization: { params: { scope: MAIL_SCOPE } } })],
   session: { strategy: 'jwt' },
   pages: { error: '/giris-hatasi' },
   callbacks: {
     // Fail closed: no configured address means nobody gets in.
-    signIn({ profile }) {
+    async signIn({ profile, account }) {
       const email = String(profile?.email ?? profile?.preferred_username ?? '').toLowerCase()
-      return !!email && allowedEmails.includes(email)
+      if (!email || !allowedEmails.includes(email)) return false
+      // Asistanın bu kullanıcı adına mail gönderebilmesi için yenileme belirteci saklanır.
+      if (account?.refresh_token) {
+        try {
+          await saveRefreshToken(email, account.refresh_token)
+        } catch (e) {
+          console.error('mail token kaydedilemedi', e)
+        }
+      }
+      return true
     },
   },
 })
