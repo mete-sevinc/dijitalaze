@@ -17,6 +17,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET?.trim(),
       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER?.trim(),
       authorization: { params: { scope: MAIL_SCOPE } },
+      token: {
+        // Başarısız token yanıtında Microsoft'un AADSTS kodunu loglar (yalnızca hata alanları).
+        async conform(res: Response) {
+          if (!res.ok) {
+            const j = (await res.clone().json().catch(() => ({}))) as { error?: string; error_codes?: number[]; error_description?: string }
+            console.error(`[auth-debug] token ${res.status} ${j.error ?? ''} ${JSON.stringify(j.error_codes ?? '')} ${(j.error_description ?? '').split('\n')[0].slice(0, 300)}`)
+          }
+          return res
+        },
+      },
     }),
   ],
   logger: {
