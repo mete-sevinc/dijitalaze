@@ -146,30 +146,41 @@ async function runTool(owner: string, name: string, input: unknown): Promise<unk
   }
 }
 
-const REQUEST_TIMEOUT_MS = 15_000
+const REQUEST_TIMEOUT_MS = 12_000
 const RETRYABLE = new Set([429, 500, 503, 504])
-const FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']
+// Hızlı, düşünmesi kapalı modeller önce; ilk yanıt veren kazanır.
+const FALLBACK_MODELS = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-3.8-flash']
 
 // Model yoğun (503/429), zaman aşımında ya da bulunamazsa (404) sıradaki modele geçer.
-async function callGemini(apiKey: string, preferred: string | undefined, body: unknown): Promise<Response> {
+// Düşünme kapalı istenir (gecikmeyi kısaltır); model bu alanı reddederse (400) alansız yeniden denenir.
+async function callGemini(apiKey: string, preferred: string | undefined, body: Record<string, unknown>): Promise<Response> {
   const models = [...new Set([preferred, ...FALLBACK_MODELS].filter((m): m is string => !!m))]
   let last = 'Gemini yanıt vermedi'
   for (const model of models) {
-    let res: Response
-    try {
-      res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      })
-    } catch {
-      last = `Gemini zaman aşımı (${model})`
-      continue
+    for (const thinkingOff of [true, false]) {
+      const gen = (body.generationConfig ?? {}) as Record<string, unknown>
+      const payload = thinkingOff ? { ...body, generationConfig: { ...gen, thinkingConfig: { thinkingBudget: 0 } } } : body
+      const t0 = Date.now()
+      let res: Response
+      try {
+        res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        })
+      } catch {
+        console.warn(`gemini ${model} timeout ${Date.now() - t0}ms`)
+        last = `Gemini zaman aşımı (${model})`
+        break
+      }
+      console.log(`gemini ${model} thinkingOff=${thinkingOff} status=${res.status} ${Date.now() - t0}ms`)
+      if (res.ok) return res
+      last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
+      if (res.status === 400 && thinkingOff) continue
+      if (res.status !== 404 && !RETRYABLE.has(res.status)) throw new Error(last)
+      break
     }
-    if (res.ok) return res
-    last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
-    if (res.status !== 404 && !RETRYABLE.has(res.status)) throw new Error(last)
   }
   throw new Error(last)
 }
