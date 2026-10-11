@@ -28,3 +28,13 @@ Güncelleme: 2026-10-06
 - Tetikleyici: `.github/workflows/scheduler.yml` her 5 dk `/api/cron/assistant` çağırır (repo secret `CRON_SECRET` gerekli). Vercel env: CRON_SECRET, VAPID_*, NEXT_PUBLIC_VAPID_PUBLIC_KEY.
 - Doğrulandı: tsc/eslint temiz; zamanlı mail yaşam döngüsü (yetki yokken 3 deneme→FAILED) DB'de test edildi.
 - Doğrulanmadı: gerçek Graph gönderimi, push, Actions tetikleyicisi (henüz commit/push edilmedi).
+
+## Entra yeniden kayıt (karar: ana kayıt info@ dizininde, 2026-10-12)
+Eski AZE Dijital kaydı info@azeotomasyon.com dizininde YOK (3 eski kayıt var). Yeni kayıt: Entra → Uygulama kayıtları → Yeni kayıt:
+- Ad: AZE Dijital; hesap türü: yalnızca bu kuruluş; yönlendirme (Web): `https://dijital.aze.com.tr/api/auth/callback/microsoft-entra-id`
+- API izinleri: Microsoft Graph → Delegated → `Mail.Send`, `offline_access`, `User.Read`, `openid`, `profile`, `email` → yönetici onayı ver (kullanıcıya ayrı onay ekranı çıkmaz).
+- Kurumsal uygulama → Özellikler → "Atama gerekli" açık; kullanıcıları ata (mete dahil).
+- Sertifikalar ve gizli diziler → yeni client secret.
+- Vercel env güncelle (Production+Preview): `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, `AUTH_MICROSOFT_ENTRA_ID_ISSUER` (= `https://login.microsoftonline.com/<info dizin tenant id>/v2.0`), `AUTH_ALLOWED_EMAIL` (tüm kullanıcı adresleri, virgüllü) → redeploy.
+- Giriş çalışınca eski kaydı sil. Her kullanıcı yeniden giriş yapınca refresh token kaydedilir; mailler giriş yapan kullanıcının hesabından gider.
+- NOT: kullanıcı adresleri, yeni dizinde olmalı (Entra'daki UPN ile `AUTH_ALLOWED_EMAIL` birebir aynı).
