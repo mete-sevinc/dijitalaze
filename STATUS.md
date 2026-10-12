@@ -38,3 +38,9 @@ Eski AZE Dijital kaydı info@azeotomasyon.com dizininde YOK (3 eski kayıt var).
 - Vercel env güncelle (Production+Preview): `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, `AUTH_MICROSOFT_ENTRA_ID_ISSUER` (= `https://login.microsoftonline.com/<info dizin tenant id>/v2.0`), `AUTH_ALLOWED_EMAIL` (tüm kullanıcı adresleri, virgüllü) → redeploy.
 - Giriş çalışınca eski kaydı sil. Her kullanıcı yeniden giriş yapınca refresh token kaydedilir; mailler giriş yapan kullanıcının hesabından gider.
 - NOT: kullanıcı adresleri, yeni dizinde olmalı (Entra'daki UPN ile `AUTH_ALLOWED_EMAIL` birebir aynı).
+
+## 2026-10-12: Mail + giriş canlıda
+- Giriş: yeni Entra kaydı (info@ dizini, tek kiracı) çalışıyor; kullanıcı `AUTH_ALLOWED_EMAIL`. Secret yanlış kopyalanınca `invalid_client` verir (Entra'da yalnızca oluşturma anında görünen **Değer**, Secret ID değil). `/giris` kurumsal giriş sayfası, üstte e-posta + "Çıkış yap".
+- Mail: gerçek test maili SENT; zamanlı (DB `SCHEDULED`) mail zamanlayıcı çağrısıyla SENT oldu. Asistan araç çağırmadan "gönderdim" derse sunucu zorlar/dürüst hata verir (`CLAIMS_DONE`). Bekleyen taslak id'leri sistem istemine girer.
+- AÇIK SORUN: GitHub Actions `*/5` cron'u güvenilmez (saatlerce tetiklenmedi, yalnızca 22:10 ve 01:21 UTC). Uygulama kapalıyken zamanında gönderim/hatırlatma için harici dakikalık tetikleyici gerekli (cron-job.org ya da Cloudflare Worker cron; `GET /api/cron/assistant`, `Authorization: Bearer CRON_SECRET`).
+- Doğrulanmadı: web push cihaza gerçek bildirim; Gemini 12 sn zaman aşımı arada "Asistan yanıt veremedi" veriyor.
