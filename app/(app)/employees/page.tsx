@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createEmployee, getEmployees } from '@/app/actions/employees'
 
@@ -17,7 +18,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'ACTIVE' | 'PAUSED'>('all')
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(useSearchParams().get('yeni') === '1')
   const [form, setForm] = useState({ name: '', title: '', department: '', responsibilities: '' })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)

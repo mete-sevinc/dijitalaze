@@ -114,7 +114,7 @@ export default function TasksPage() {
 
       {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
 
-      <section className="bg-white rounded-lg shadow p-6 space-y-3">
+      <section id="yeni-gorev" className="bg-white rounded-lg shadow p-6 space-y-3 scroll-mt-4">
         <h2 className="text-xl font-semibold text-slate-900">Personele iş ver</h2>
         {employees.length === 0 ? (
           <p className="text-sm text-slate-500">Önce Çalışanlar sayfasından bir personel tanımla.</p>

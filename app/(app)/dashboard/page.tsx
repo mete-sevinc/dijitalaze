@@ -116,13 +116,13 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Hızlı İşlemler</h3>
           <div className="space-y-2">
-            <Link href="/tasks" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
+            <Link href="/tasks#yeni-gorev" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
               ➕ Yeni Görev Oluştur
             </Link>
             <Link href="/meetings" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
               🤝 Toplantı Başlat
             </Link>
-            <Link href="/employees" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
+            <Link href="/employees?yeni=1" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
               👥 Çalışan Ekle
             </Link>
           </div>
