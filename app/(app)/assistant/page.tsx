@@ -73,16 +73,23 @@ export default function AssistantPage() {
       } catch {
         setError('Veriler yüklenemedi')
       }
+      let draft: string | null = null
+      try {
+        draft = sessionStorage.getItem('assistant_draft')
+        sessionStorage.removeItem('assistant_draft')
+      } catch {}
+      if (draft) send(draft)
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, sending])
 
-  async function send() {
-    const text = input.trim()
+  async function send(override?: string) {
+    const text = (override ?? input).trim()
     if (!text || sending) return
     setInput('')
     setError(null)
@@ -124,10 +131,10 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-      <section className="lg:col-span-2 flex flex-col bg-white border border-slate-200 rounded min-h-[28rem]">
+    <div className="p-8 grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-1 gap-6 h-full">
+      <section className="lg:col-span-2 flex flex-col bg-white border border-slate-200 rounded h-[70vh] lg:h-full min-h-0">
         <h1 className="px-6 py-4 border-b border-slate-200 text-2xl font-bold text-slate-900">Kişisel Asistan</h1>
-        <div className="flex-1 overflow-auto p-6 space-y-3">
+        <div className="flex-1 min-h-0 overflow-auto p-6 space-y-3">
           {messages.length === 0 && !sending && (
             <p className="text-slate-500 text-sm">
               Örn: “Yarın 10:00’da Ahmet’i aramayı hatırlat”, “Not al: teklif %10 indirimli”, “Bugün neler var?”
@@ -166,7 +173,7 @@ export default function AssistantPage() {
         </form>
       </section>
 
-      <aside className="space-y-6">
+      <aside className="space-y-6 lg:overflow-auto lg:min-h-0">
         <section className="bg-white border border-slate-200 rounded p-4">
           <h2 className="font-semibold text-slate-900 mb-3">Açık işler</h2>
           {tasks.length === 0 ? (
