@@ -212,6 +212,16 @@ async function systemPrompt(owner: string): Promise<string> {
   const memoryBlock = memories.length
     ? memories.map((m) => `- [${m.id}] (${m.kind}) ${m.content}`).join('\n')
     : '(henüz kayıt yok)'
+  const pending = await prisma.assistantEmail.findMany({
+    where: { ownerEmail: owner, status: { in: ['DRAFT', 'SCHEDULED'] } },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  })
+  const mailBlock = pending.length
+    ? pending
+        .map((m) => `- [${m.id}] ${m.status}${m.scheduledAt ? ` (${m.scheduledAt.toISOString()})` : ''} → ${m.toEmails} | ${m.subject}`)
+        .join('\n')
+    : '(bekleyen taslak/zamanlı mail yok)'
   return `Sen Mete'nin kişisel asistanısın. Türkçe, kısa ve net yaz.
 Görevlerin: günlük işlerini takip etmek, hatırlatma kurmak, notlarını saklamak, planlarını özetlemek ve personele iş vermek.
 Şu an: ${istanbulNow()}. Göreli zamanları ("yarın 10'da", "2 saat sonra") bu saate göre hesapla ve araçlara +03:00 ofsetli ISO 8601 ver.
@@ -221,6 +231,9 @@ Tarih/saat belirsizse tahmin etme, tek kısa soru sor.
 
 Öğrenme: Sahibinin kalıcı tercihlerini, rutinlerini, çevresindeki kişileri ve işiyle ilgili sabit bilgileri fark ettiğinde remember ile kaydet. Aşağıdaki hafızayı kullanarak kişiselleştir; yanlış/eskimiş kayıt görürsen forget ile sil.
 Personel: Sahibi bir personele iş vermek isterse önce list_employees ile doğru kişiyi bul, sonra assign_task_to_employee kullan. Personel işi arka planda yapar; sonuç Görevler sayfasında sahibinin onayına düşer, sen sonucu uydurma.
+
+Bekleyen e-postalar (schedule_email/send_email/update_email_draft/cancel_email için bu id'leri kullan; araç başarılı dönmeden "zamanladım/gönderdim" deme):
+${mailBlock}
 
 Hafıza:
 ${memoryBlock}`
