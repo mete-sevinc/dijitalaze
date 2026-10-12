@@ -42,5 +42,12 @@ Eski AZE Dijital kaydı info@azeotomasyon.com dizininde YOK (3 eski kayıt var).
 ## 2026-10-12: Mail + giriş canlıda
 - Giriş: yeni Entra kaydı (info@ dizini, tek kiracı) çalışıyor; kullanıcı `AUTH_ALLOWED_EMAIL`. Secret yanlış kopyalanınca `invalid_client` verir (Entra'da yalnızca oluşturma anında görünen **Değer**, Secret ID değil). `/giris` kurumsal giriş sayfası, üstte e-posta + "Çıkış yap".
 - Mail: gerçek test maili SENT; zamanlı (DB `SCHEDULED`) mail zamanlayıcı çağrısıyla SENT oldu. Asistan araç çağırmadan "gönderdim" derse sunucu zorlar/dürüst hata verir (`CLAIMS_DONE`). Bekleyen taslak id'leri sistem istemine girer.
-- AÇIK SORUN: GitHub Actions `*/5` cron'u güvenilmez (saatlerce tetiklenmedi, yalnızca 22:10 ve 01:21 UTC). Uygulama kapalıyken zamanında gönderim/hatırlatma için harici dakikalık tetikleyici gerekli (cron-job.org ya da Cloudflare Worker cron; `GET /api/cron/assistant`, `Authorization: Bearer CRON_SECRET`).
+- ÇÖZÜLDÜ: GitHub `*/5` cron'u güvenilmezdi; `.github/workflows/scheduler.yml` artık dakikalık kendini yenileyen zincir (public repo, ücretsiz). Doğrulandı: zamanlı mail ve hatırlatma dakika içinde işlendi.
+- (eski not) GitHub Actions `*/5` cron'u güvenilmez (saatlerce tetiklenmedi, yalnızca 22:10 ve 01:21 UTC). Uygulama kapalıyken zamanında gönderim/hatırlatma için harici dakikalık tetikleyici gerekli (cron-job.org ya da Cloudflare Worker cron; `GET /api/cron/assistant`, `Authorization: Bearer CRON_SECRET`).
 - Doğrulanmadı: web push cihaza gerçek bildirim; Gemini 12 sn zaman aşımı arada "Asistan yanıt veremedi" veriyor.
+
+## 2026-10-12 (genel kontrol sonrası)
+- Oturum her istekte izin listesine karşı doğrulanır (`auth.ts` jwt callback); listeden çıkan kullanıcı düşer. İptal edilen mail yetkisi (`invalid_grant`) silinir, panel "yeniden giriş" uyarısı verir.
+- LLM zaman aşımı 25 sn, asistan rotası `maxDuration=60`. Lint/tsc temiz. Push bu cihazda açık.
+- Temizlik: "Ayşe (Satış Uzmanı)" test kopyası ARCHIVED, test mailleri silindi. Eski Entra kaydı (başka dizinde) elle silinmeli.
+- Doğrulanmadı: push'un cihazda görünmesi (sunucu tarafı gönderdi), zincirin 6 saatlik devri.
