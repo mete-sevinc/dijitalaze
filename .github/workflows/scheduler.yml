@@ -1,6 +1,6 @@
 name: scheduler
 # GitHub'ın */5 cron'u güvenilmez; bu iş dakikada bir uygulamayı tetikler (hatırlatma + zamanlı mail),
-# süresi dolmadan kendini yeniden başlatır. Saatlik schedule yalnızca zincir koparsa devreye girer.
+# süresi dolunca kendini yeniden başlatır. Saatlik schedule yalnızca zincir koparsa devreye girer.
 on:
   schedule:
     - cron: '7 * * * *'
@@ -8,8 +8,7 @@ on:
 concurrency:
   group: scheduler
   cancel-in-progress: false
-permissions:
-  actions: write
+permissions: {}
 jobs:
   tick:
     runs-on: ubuntu-latest
@@ -20,14 +19,28 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           end=$(( $(date +%s) + 5*3600 + 50*60 ))
+          fails=0
           while [ "$(date +%s)" -lt "$end" ]; do
-            curl --silent --show-error --max-time 50 \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              https://dijital.aze.com.tr/api/cron/assistant > /dev/null || echo "tick failed"
+            if curl --fail --silent --show-error --max-time 50 \
+                 -H "Authorization: Bearer $CRON_SECRET" \
+                 https://dijital.aze.com.tr/api/cron/assistant > /dev/null; then
+              fails=0
+            else
+              fails=$((fails+1))
+              echo "tick failed ($fails) at $(date -u +%T)"
+              if [ "$fails" -ge 10 ]; then echo "10 ardışık hata, zincir durduruluyor"; exit 1; fi
+            fi
             sleep 60
           done
+  continue:
+    needs: tick
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
       - name: Zinciri sürdür
-        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run scheduler.yml --repo "${{ github.repository }}"
