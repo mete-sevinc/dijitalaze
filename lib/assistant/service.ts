@@ -192,6 +192,8 @@ const tools: ToolSpec[] = [
   },
 ]
 
+const CLAIMS_DONE = /(gönderildi|zamanlandı|zamanlandi|oluşturuldu|kaydedildi|eklendi|iptal edildi|silindi|tamamlandı olarak)/i
+
 const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee', 'draft_email', 'update_email_draft', 'schedule_email', 'send_email', 'cancel_email'])
 
 function istanbulNow(): string {
@@ -439,18 +441,30 @@ export async function chatWithAssistant(owner: string, userText: string): Promis
 
   let mutated = false
   const draftedThisTurn = new Set<string>()
-  let reply = await runAgent({
-    system: await systemPrompt(owner),
-    history: past.reverse(),
-    userText,
-    tools,
-    run: async (name, args) => {
-      const out = await runTool(owner, name, args, draftedThisTurn)
-      if (MUTATING_TOOLS.has(name)) mutated = true
-      return out
-    },
-    hasSideEffects: () => mutated,
-  })
+  const history = past.reverse()
+  const system = await systemPrompt(owner)
+  const attempt = (text: string) =>
+    runAgent({
+      system,
+      history,
+      userText: text,
+      tools,
+      run: async (name, args) => {
+        const out = await runTool(owner, name, args, draftedThisTurn)
+        if (MUTATING_TOOLS.has(name)) mutated = true
+        return out
+      },
+      hasSideEffects: () => mutated,
+    })
+
+  let reply = await attempt(userText)
+  // Model araç çağırmadan "yaptım" diyebiliyor; başarı iddiası araç sonucuyla desteklenmiyorsa bir kez zorla, olmazsa dürüst ol.
+  if (!mutated && CLAIMS_DONE.test(reply)) {
+    reply = await attempt(
+      `${userText}\n\n[Sistem notu: Önceki yanıtında ilgili aracı çağırmadan işlemin yapıldığını söyledin. İşlemi şimdi araçla yap (taslak id'leri sistem istemindeki "Bekleyen e-postalar" listesinde); araç başarılı dönmeden "yapıldı" deme.]`
+    )
+    if (!mutated && CLAIMS_DONE.test(reply)) reply = 'İşlemi gerçekleştiremedim (araç çalışmadı). Lütfen tekrar dener misin?'
+  }
 
   reply = reply || 'Bir yanıt üretemedim, tekrar dener misin?'
   // Aynı createdAt sıralamayı belirsiz yapmasın diye yanıt 1 ms sonraya yazılır.
