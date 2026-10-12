@@ -20,7 +20,7 @@ export interface AgentRunOptions {
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const GITHUB_MODELS_URL = 'https://models.github.ai/inference/chat/completions'
-const REQUEST_TIMEOUT_MS = 12_000
+const REQUEST_TIMEOUT_MS = 25_000
 const RETRYABLE = new Set([429, 500, 503, 504])
 // Hızlı, düşünmesi kapalı modeller önce; ilk yanıt veren kazanır.
 const FALLBACK_MODELS = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-3.8-flash']

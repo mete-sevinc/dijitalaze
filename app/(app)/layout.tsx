@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <aside className="w-64 bg-slate-900 text-white flex flex-col">
         <div className="p-6 border-b border-slate-700">
           <h1 className="text-2xl font-bold">AZE Dijital</h1>
-          <p className="text-sm text-slate-400 mt-1">AZE'nin Dijital Gezegeni</p>
+          <p className="text-sm text-slate-400 mt-1">AZE&apos;nin Dijital Gezegeni</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

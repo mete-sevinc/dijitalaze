@@ -22,6 +22,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   pages: { signIn: '/giris', error: '/giris-hatasi' },
   callbacks: {
+    // Listeden çıkarılan kullanıcının mevcut oturumu da her istekte düşer.
+    jwt({ token, profile }) {
+      // Girişte e-posta yoksa preferred_username kullanılır (signIn ile aynı kural).
+      if (profile) token.email = String(profile.email ?? profile.preferred_username ?? token.email ?? '').toLowerCase()
+      const email = String(token.email ?? '').toLowerCase()
+      return email && allowedEmails.includes(email) ? token : null
+    },
     // Fail closed: no configured address means nobody gets in.
     async signIn({ profile, account }) {
       const email = String(profile?.email ?? profile?.preferred_username ?? '').toLowerCase()

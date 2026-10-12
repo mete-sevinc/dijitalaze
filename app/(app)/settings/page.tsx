@@ -18,20 +18,17 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
-  async function load() {
-    const res = await getSettings()
-    if (res.success) {
-      setName(res.data.company?.name ?? '')
-      setDescription(res.data.company?.description ?? '')
-      setAllowedEmails(res.data.allowedEmails)
-    } else {
-      setMsg({ kind: 'err', text: res.error })
-    }
-    setLoading(false)
-  }
-
   useEffect(() => {
-    load()
+    getSettings().then((res) => {
+      if (res.success) {
+        setName(res.data.company?.name ?? '')
+        setDescription(res.data.company?.description ?? '')
+        setAllowedEmails(res.data.allowedEmails)
+      } else {
+        setMsg({ kind: 'err', text: res.error })
+      }
+      setLoading(false)
+    })
   }, [])
 
   async function run(fn: () => Promise<{ success: boolean; error?: string }>, okText: string) {

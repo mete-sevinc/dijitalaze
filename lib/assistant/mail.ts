@@ -54,6 +54,10 @@ async function accessToken(owner: string): Promise<string> {
     signal: AbortSignal.timeout(15000),
   })
   const json = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; error?: string }
+  if (json.error === 'invalid_grant') {
+    // Yetki iptal edilmiş/süresi dolmuş: kaydı sil, panel "yeniden giriş yapın" uyarısı göstersin.
+    await prisma.assistantMailAccount.deleteMany({ where: { ownerEmail: owner } })
+  }
   if (!res.ok || !json.access_token) throw new Error(`Token yenilenemedi (${json.error ?? res.status}); tekrar giriş gerekli`)
   if (json.refresh_token) await saveRefreshToken(owner, json.refresh_token)
   return json.access_token
