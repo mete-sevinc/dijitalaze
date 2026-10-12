@@ -51,3 +51,8 @@ Eski AZE Dijital kaydı info@azeotomasyon.com dizininde YOK (3 eski kayıt var).
 - LLM zaman aşımı 25 sn, asistan rotası `maxDuration=60`. Lint/tsc temiz. Push bu cihazda açık.
 - Temizlik: "Ayşe (Satış Uzmanı)" test kopyası ARCHIVED, test mailleri silindi. Eski Entra kaydı (başka dizinde) elle silinmeli.
 - Doğrulanmadı: push'un cihazda görünmesi (sunucu tarafı gönderdi), zincirin 6 saatlik devri.
+
+## 2026-10-12: Personel iş birliği düzeni
+- `Employee.collaboration` alanı eklendi (db push yapıldı, nullable). Çalışan detay > Genel'de "İş Birliği Düzeni" olarak düzenlenir.
+- `context-builder.ts` prompta yönetici + iş birliği düzeni + aktif meslektaş listesini (ad/unvan/departman) ekler.
+- Doğrulandı: tsc temiz. Doğrulanmadı: UI'dan kayıt, canlı ajan yanıtında kullanımı; ajanlar arası otomatik devir (araç) henüz yok, sadece prompt bilgisi.

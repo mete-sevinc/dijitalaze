@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getEmployeeById, updateEmployee } from '@/app/actions/employees'
+import { getEmployeeById, updateEmployee, deleteEmployee } from '@/app/actions/employees'
 import { getInstructions, createInstruction, updateInstruction, deleteInstruction } from '@/app/actions/instructions'
 
 interface Employee {
@@ -22,6 +22,7 @@ interface Employee {
   communicationStyle?: string | null
   decisionRules?: string | null
   escalationRules?: string | null
+  collaboration?: string | null
   permissions?: string | null
   tools?: string | null
   status: string
@@ -94,6 +95,18 @@ export default function EmployeeDetailPage() {
     load()
   }, [id])
 
+  async function handleDelete() {
+    if (!employee) return
+    if (!window.confirm(`${employee.name} kalıcı olarak silinsin mi? Hafızası, talimatları ve raporları da silinir; görevleri atanmamış kalır.`)) return
+    const result = await deleteEmployee(employee.id)
+    if (result.success) {
+      router.push('/employees')
+      router.refresh()
+    } else {
+      window.alert(result.error || 'Silinemedi')
+    }
+  }
+
   async function handleSave() {
     if (!employee) return
     setSaving(true)
@@ -112,6 +125,7 @@ export default function EmployeeDetailPage() {
       communicationStyle: form.communicationStyle || undefined,
       decisionRules: form.decisionRules || undefined,
       escalationRules: form.escalationRules || undefined,
+      collaboration: form.collaboration || undefined,
     })
     if (result.success) {
       setEmployee({ ...employee, ...form } as Employee)
@@ -212,6 +226,11 @@ export default function EmployeeDetailPage() {
                 ✏️ Düzenle
               </button>
             )}
+            {!editMode && (
+              <button onClick={handleDelete} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">
+                🗑️ Sil
+              </button>
+            )}
             {saved && <span className="text-green-600 text-sm self-center">✓ Kaydedildi</span>}
           </div>
 
@@ -248,6 +267,7 @@ export default function EmployeeDetailPage() {
             { label: 'İletişim Stili', key: 'communicationStyle' as const },
             { label: 'Karar Kuralları', key: 'decisionRules' as const },
             { label: 'Eskalasyon Kuralları', key: 'escalationRules' as const },
+            { label: 'İş Birliği Düzeni (kimden girdi alır, kime teslim eder, kimle koordine olur)', key: 'collaboration' as const },
           ].map(({ label, key }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>

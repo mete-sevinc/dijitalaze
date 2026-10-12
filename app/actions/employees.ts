@@ -150,3 +150,16 @@ export async function searchEmployees(companyId: string, query: string, departme
     }
   }
 }
+
+export async function deleteEmployee(employeeId: string) {
+  await requireAuth()
+  try {
+    await prisma.employee.delete({ where: { id: employeeId } })
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Çalışan silinemedi',
+    }
+  }
+}

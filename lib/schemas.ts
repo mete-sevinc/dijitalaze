@@ -16,6 +16,7 @@ export const createEmployeeSchema = z.object({
   communicationStyle: z.string().optional(),
   decisionRules: z.string().optional(),
   escalationRules: z.string().optional(),
+  collaboration: z.string().optional(),
   managerId: z.string().optional(),
 })
 

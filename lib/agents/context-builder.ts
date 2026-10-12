@@ -12,6 +12,7 @@ export class AgentContextBuilder {
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
       include: {
+        manager: { select: { name: true, title: true } },
         instructions: {
           where: { active: true },
           orderBy: { priority: 'desc' },
@@ -22,6 +23,13 @@ export class AgentContextBuilder {
     if (!employee) {
       throw new Error(`Employee not found: ${employeeId}`)
     }
+
+    const colleagues = await prisma.employee.findMany({
+      where: { companyId, id: { not: employeeId }, status: 'ACTIVE' },
+      select: { name: true, title: true, department: true },
+      orderBy: { name: 'asc' },
+      take: 30,
+    })
 
     // Get relevant memory
     const relevantMemory = await this.getRelevantMemory(employeeId)
@@ -50,6 +58,9 @@ export class AgentContextBuilder {
       communicationStyle: employee.communicationStyle || '',
       decisionRules: employee.decisionRules || '',
       escalationRules: employee.escalationRules || '',
+      collaboration: employee.collaboration || '',
+      manager: employee.manager || undefined,
+      colleagues,
       permissions: employee.permissions ? JSON.parse(employee.permissions) : ([] as string[]),
       instructions: employee.instructions.map((i: { content: string }) => i.content),
       relevantMemory,
@@ -217,6 +228,13 @@ ${context.decisionRules || 'Make decisions within your authority'}
 
 ## Escalation Rules
 ${context.escalationRules || 'Escalate when unsure'}
+
+## Collaboration with Other Staff
+Manager: ${context.manager ? `${context.manager.name} (${context.manager.title})` : 'None (reports to the owner)'}
+Working order: ${context.collaboration || 'Not specified'}
+Colleagues:
+${context.colleagues.length > 0 ? context.colleagues.map((c) => `- ${c.name} (${c.title}, ${c.department})`).join('\n') : '- None'}
+Hand work to colleagues only according to the working order above; never claim another person did something they did not.
 
 ## Your Permissions
 ${context.permissions.length > 0 ? context.permissions.join(', ') : 'Standard employee permissions'}

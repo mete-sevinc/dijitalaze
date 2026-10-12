@@ -63,6 +63,9 @@ export interface AgentContext {
   communicationStyle?: string
   decisionRules?: string
   escalationRules?: string
+  collaboration?: string
+  manager?: { name: string; title: string }
+  colleagues: { name: string; title: string; department: string }[]
   permissions: string[]
   instructions: string[]
   relevantMemory: MemoryEntry[]

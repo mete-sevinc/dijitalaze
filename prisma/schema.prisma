@@ -57,6 +57,7 @@ model Employee {
   communicationStyle String?   
   decisionRules     String?    
   escalationRules   String?    
+  collaboration     String?    
   permissions       String?      // JSON array
   tools             String?      // JSON array
   status            EmployeeStatus @default(ACTIVE)
