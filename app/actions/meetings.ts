@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
 import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
 import { logActionError, UserError, userMessage } from '@/lib/action-log'
+import { draftMeetingWrapUp, speakInMeeting } from '@/lib/agents/meeting'
 
 const idSchema = z.string().min(1).max(64)
 const createSchema = z.object({
@@ -206,5 +207,39 @@ export async function completeActionItem(meetingId: string, itemId: string) {
     return { success: true as const }
   } catch (e) {
     return fail('completeActionItem', e, 'Aksiyon güncellenemedi')
+  }
+}
+
+// One AI participant speaks per call, so each request stays well inside the function time limit.
+export async function speakNext(meetingId: string) {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    return { success: true as const, ...(await speakInMeeting(idSchema.parse(meetingId), companyId)) }
+  } catch (e) {
+    return fail('speakNext', e, 'Konuşma alınamadı')
+  }
+}
+
+export async function draftWrapUp(meetingId: string) {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    return { success: true as const, data: await draftMeetingWrapUp(idSchema.parse(meetingId), companyId) }
+  } catch (e) {
+    return fail('draftWrapUp', e, 'Özet oluşturulamadı')
+  }
+}
+
+// Removes the meeting with its notes, participants and action items. Tasks already created from
+// action items stay, since they may be in progress.
+export async function deleteMeeting(id: string) {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    await prisma.meeting.delete({ where: { id: idSchema.parse(id), companyId } })
+    return { success: true as const }
+  } catch (e) {
+    return fail('deleteMeeting', e, 'Toplantı silinemedi')
   }
 }

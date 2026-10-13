@@ -71,3 +71,15 @@ export async function generateReports(type: ReportType, employeeId?: string) {
     return { success: false as const, error: 'Rapor oluşturulamadı' }
   }
 }
+
+export async function deleteReport(id: string) {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    await prisma.employeeReport.delete({ where: { id: z.string().min(1).max(64).parse(id), companyId } })
+    return { success: true as const }
+  } catch (e) {
+    logActionError('deleteReport', e)
+    return { success: false as const, error: 'Rapor silinemedi' }
+  }
+}

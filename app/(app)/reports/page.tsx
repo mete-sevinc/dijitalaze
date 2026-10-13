@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { generateReports, getReports } from '@/app/actions/reports'
+import { deleteReport, generateReports, getReports } from '@/app/actions/reports'
 import { getEmployees } from '@/app/actions/employees'
 import { parseList, REPORT_LABELS, type ReportType } from '@/lib/reports'
 
@@ -69,6 +69,14 @@ export default function ReportsPage() {
       await load()
     } else setError(res.error)
     setBusy(false)
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Bu rapor silinsin mi?')) return
+    setError(null)
+    const res = await deleteReport(id)
+    if (res.success) await load()
+    else setError(res.error)
   }
 
   return (
@@ -153,6 +161,7 @@ export default function ReportsPage() {
                     )
                   })}
                 </div>
+                <button onClick={() => remove(r.id)} className="mt-4 px-3 py-1.5 border border-red-300 text-red-700 rounded text-xs">Sil</button>
               </details>
             </li>
           ))}

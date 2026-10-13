@@ -1,8 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { addActionItem, addMeetingNote, completeActionItem, completeMeeting, getMeeting, setMeetingStatus } from '@/app/actions/meetings'
+import { useParams, useRouter } from 'next/navigation'
+import { addActionItem, addMeetingNote, completeActionItem, completeMeeting, deleteMeeting, draftWrapUp, getMeeting, setMeetingStatus, speakNext } from '@/app/actions/meetings'
 import { parseList } from '@/lib/reports'
 import { ACTION_STATUS_LABELS, MEETING_STATUS_LABELS } from '@/lib/meeting-labels'
 
@@ -16,14 +16,20 @@ interface MeetingData {
   startedAt: Date | null
   endedAt: Date | null
   participants: { employee: { id: string; name: string; title: string } }[]
-  messages: { id: string; content: string; createdAt: Date }[]
+  messages: { id: string; employeeId: string | null; content: string; createdAt: Date }[]
   actionItems: { id: string; content: string; assigneeId: string | null; status: string }[]
+}
+
+interface Suggestion {
+  content: string
+  assigneeId?: string
 }
 
 const fmt = (d: Date) => new Date(d).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })
 
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [meeting, setMeeting] = useState<MeetingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -33,6 +39,8 @@ export default function MeetingDetailPage() {
   const [assignee, setAssignee] = useState('')
   const [summary, setSummary] = useState('')
   const [decisions, setDecisions] = useState('')
+  const [speaking, setSpeaking] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
 
   const load = useCallback(async () => {
     const res = await getMeeting(id)
@@ -55,6 +63,52 @@ export default function MeetingDetailPage() {
       await load()
     } else setError(res.error ?? 'İşlem başarısız')
     setBusy(false)
+  }
+
+  async function runRound() {
+    if (!meeting) return
+    setBusy(true)
+    setError(null)
+    for (let i = 0; i < meeting.participants.length; i++) {
+      setSpeaking('Sıradaki konuşmacı hazırlanıyor…')
+      const res = await speakNext(meeting.id)
+      if (!res.success) {
+        setError(res.error)
+        break
+      }
+      if (res.done) {
+        setError('Herkes konuşma hakkını kullandı. Toplantıyı tamamlayabilirsin.')
+        break
+      }
+      setSpeaking(`${res.speaker} konuştu`)
+      await load()
+    }
+    setSpeaking(null)
+    setBusy(false)
+  }
+
+  async function prepareWrapUp() {
+    if (!meeting) return
+    setBusy(true)
+    setError(null)
+    const res = await draftWrapUp(meeting.id)
+    if (res.success) {
+      setSummary(res.data.summary)
+      setDecisions(res.data.decisions.join('\n'))
+      setSuggestions(res.data.actions)
+    } else setError(res.error)
+    setBusy(false)
+  }
+
+  async function removeMeeting() {
+    if (!meeting || !window.confirm('Toplantı notları ve aksiyonlarıyla birlikte silinsin mi? Aksiyondan açılan görevler kalır.')) return
+    setBusy(true)
+    const res = await deleteMeeting(meeting.id)
+    if (res.success) router.push('/meetings')
+    else {
+      setError(res.error)
+      setBusy(false)
+    }
   }
 
   if (loading) return <div className="p-8 text-slate-500">Yükleniyor...</div>
@@ -86,6 +140,10 @@ export default function MeetingDetailPage() {
           {meeting.endedAt && ` · Bitti: ${fmt(meeting.endedAt)}`}
         </p>
         {error && <p role="alert" className="text-sm text-red-700 mt-2">{error}</p>}
+      </div>
+
+      <div className="flex gap-2">
+        <button disabled={busy} onClick={removeMeeting} className="px-4 py-2 border border-red-300 text-red-700 rounded text-sm disabled:opacity-50">Toplantıyı sil</button>
       </div>
 
       {open && (
@@ -124,11 +182,21 @@ export default function MeetingDetailPage() {
           <ul className="space-y-2">
             {meeting.messages.map((m) => (
               <li key={m.id} className="text-sm text-slate-800 bg-slate-50 rounded p-3">
-                <span className="block text-xs text-slate-500">{fmt(m.createdAt)}</span>
+                <span className="block text-xs text-slate-500">
+                  {m.employeeId ? (names.get(m.employeeId) ?? 'Katılımcı') : 'Sen'} · {fmt(m.createdAt)}
+                </span>
                 <span className="whitespace-pre-wrap">{m.content}</span>
               </li>
             ))}
           </ul>
+        )}
+        {meeting.status === 'ACTIVE' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button disabled={busy} onClick={runRound} className="px-4 py-2 bg-indigo-600 text-white rounded text-sm disabled:opacity-50">
+              Bir tur konuştur
+            </button>
+            <span role="status" className="text-sm text-slate-600">{speaking ?? 'Katılımcılar sırayla gündem hakkında konuşur (kişi başı en fazla 3 söz).'}</span>
+          </div>
         )}
         {open && (
           <form
@@ -194,6 +262,31 @@ export default function MeetingDetailPage() {
       {meeting.status === 'ACTIVE' && (
         <section className="bg-white rounded-lg shadow p-6 space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">Toplantıyı tamamla</h2>
+          <button type="button" disabled={busy} onClick={prepareWrapUp} className="px-4 py-2 border border-slate-300 rounded text-sm disabled:opacity-50">
+            Özeti yapay zekâ hazırlasın
+          </button>
+          <p className="text-xs text-slate-500">Taslak aşağıya dolar; düzenleyip kendin tamamlarsın, otomatik kaydedilmez.</p>
+          {suggestions.length > 0 && (
+            <ul className="space-y-2">
+              {suggestions.map((a, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm bg-slate-50 rounded p-3">
+                  <span className="flex-1">
+                    {a.content}
+                    {a.assigneeId && <span className="text-slate-500"> — {names.get(a.assigneeId) ?? ''}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => addActionItem(meeting.id, a), () => setSuggestions((s) => s.filter((_, j) => j !== i)))}
+                    className="px-3 py-1 border border-slate-300 rounded text-xs disabled:opacity-50"
+                  >
+                    Aksiyon olarak ekle
+                  </button>
+                  <button type="button" onClick={() => setSuggestions((s) => s.filter((_, j) => j !== i))} className="px-3 py-1 text-xs text-slate-500">Yok say</button>
+                </li>
+              ))}
+            </ul>
+          )}
           <form
             className="space-y-2"
             onSubmit={(e) => {
