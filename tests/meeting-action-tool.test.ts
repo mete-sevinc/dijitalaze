@@ -12,7 +12,7 @@ vi.mock('@/lib/db', () => ({ prisma }))
 import { executeToolAction } from '@/lib/agents/tool-executor'
 import type { AgentContext } from '@/lib/types'
 
-const ctx = { employeeId: 'e1', employeeName: 'Ayşe' } as AgentContext
+const ctx = { employeeId: 'e1', employeeName: 'Ayşe', permissions: ['CAN_CREATE_TASKS'] } as AgentContext
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -53,5 +53,12 @@ describe('create_meeting_action tool', () => {
   it('requires both meetingId and content', async () => {
     expect((await executeToolAction('create_meeting_action', { content: 'x' }, ctx)).error).toBeTruthy()
     expect(prisma.meeting.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('needs CAN_CREATE_TASKS to assign work from a meeting', async () => {
+    prisma.meeting.findFirst.mockResolvedValue({ id: 'm1', title: 'T', status: 'ACTIVE' })
+    const r = await executeToolAction('create_meeting_action', { meetingId: 'm1', content: 'x', assigneeId: 'e2' }, { ...ctx, permissions: [] } as AgentContext)
+    expect(r.error).toContain('CAN_CREATE_TASKS')
+    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 })

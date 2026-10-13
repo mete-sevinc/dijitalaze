@@ -156,8 +156,8 @@ async function updateTask(context: AgentContext, input: Record<string, unknown>)
   const parsed = updateTaskInputSchema.parse(input)
   const taskId = input.taskId as string
 
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, companyId: await getCompanyId(context.employeeId) },
   })
 
   if (!task) {
@@ -299,7 +299,7 @@ async function getEmployeeReport(context: AgentContext, input: Record<string, un
   const type = input.type as ReportType
 
   const report = await prisma.employeeReport.findFirst({
-    where: { employeeId, type },
+    where: { employeeId, type, companyId: await getCompanyId(context.employeeId) },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -329,6 +329,9 @@ async function createMeetingAction(context: AgentContext, input: Record<string, 
   const fail = (error: string): ToolResult => ({ toolName: 'create_meeting_action', result: null, error })
   if (!meetingId || !content) return fail('meetingId and content are required')
 
+  if (assigneeId && !context.permissions.includes('CAN_CREATE_TASKS') && !context.permissions.includes('ALL')) {
+    return fail('Permission denied: CAN_CREATE_TASKS required')
+  }
   // The model supplies these ids: both must belong to the acting employee's company.
   const companyId = await getCompanyId(context.employeeId)
   const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, companyId }, select: { id: true, title: true, status: true } })
