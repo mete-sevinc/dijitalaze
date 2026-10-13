@@ -4,10 +4,13 @@ import { prisma } from '@/lib/db'
 import { createTaskSchema, updateTaskSchema } from '@/lib/schemas'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/require-auth'
+import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
+import { logActionError } from '@/lib/action-log'
 
-export async function getTasks(companyId: string, filter?: { status?: string; assigneeId?: string }) {
+export async function getTasks(filter?: { status?: string; assigneeId?: string }) {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const tasks = await prisma.task.findMany({
       where: {
         companyId,
@@ -22,15 +25,18 @@ export async function getTasks(companyId: string, filter?: { status?: string; as
     })
 
     return { success: true, data: tasks }
-  } catch {
+  } catch (e) {
+    logActionError('getTasks', e)
     return { success: false, error: 'Görevler alınamadı' }
   }
 }
 
-export async function createTask(companyId: string, input: z.infer<typeof createTaskSchema>) {
+export async function createTask(input: z.infer<typeof createTaskSchema>) {
   await requireAuth()
   try {
     const validated = createTaskSchema.parse(input)
+    const companyId = await getCompanyId()
+    if (validated.assigneeId) await assertEmployeeInCompany(validated.assigneeId, companyId)
     const task = await prisma.task.create({
       data: {
         companyId,
@@ -40,7 +46,8 @@ export async function createTask(companyId: string, input: z.infer<typeof create
     })
 
     return { success: true, data: task }
-  } catch {
+  } catch (e) {
+    logActionError('createTask', e)
     return { success: false, error: 'Görev oluşturulamadı' }
   }
 }
@@ -49,14 +56,17 @@ export async function updateTask(taskId: string, input: z.infer<typeof updateTas
   await requireAuth()
   try {
     const validated = updateTaskSchema.parse(input)
+    const companyId = await getCompanyId()
+    if (validated.assigneeId) await assertEmployeeInCompany(validated.assigneeId, companyId)
     const task = await prisma.task.update({
-      where: { id: taskId },
+      where: { id: taskId, companyId },
       data: validated,
       include: { assignee: true },
     })
 
     return { success: true, data: task }
-  } catch {
+  } catch (e) {
+    logActionError('updateTask', e)
     return { success: false, error: 'Görev güncellenemedi' }
   }
 }

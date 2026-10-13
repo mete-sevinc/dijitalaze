@@ -54,7 +54,7 @@ export default function TasksPage() {
   const [notes, setNotes] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
-    const [t, e, a] = await Promise.all([getTasks('demo_company'), getEmployees('demo_company'), getPendingApprovals()])
+    const [t, e, a] = await Promise.all([getTasks(), getEmployees(), getPendingApprovals()])
     if (t.success && t.data) setTasks(t.data as Task[])
     if (e.success && e.data) setEmployees(e.data as Employee[])
     setApprovals(a)

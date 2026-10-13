@@ -3,20 +3,22 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
+import { getCompanyId } from '@/lib/company'
+import { logActionError } from '@/lib/action-log'
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'Firma adı gerekli').max(200),
   description: z.string().trim().max(2000).optional(),
 })
 
-// Single-tenant app: the one company row is the active company.
 async function getCompanyRow() {
-  return prisma.company.findFirst({ orderBy: { createdAt: 'asc' } })
+  return prisma.company.findUnique({ where: { id: await getCompanyId() } })
 }
 
-function fail(error: unknown, fallback: string) {
+function fail(action: string, error: unknown, fallback: string) {
   if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0].message }
-  return { success: false as const, error: error instanceof Error ? error.message : fallback }
+  logActionError(action, error)
+  return { success: false as const, error: fallback }
 }
 
 export async function getSettings() {
@@ -30,7 +32,7 @@ export async function getSettings() {
       .filter(Boolean)
     return { success: true as const, data: { company, allowedEmails } }
   } catch (error) {
-    return fail(error, 'Ayarlar alınamadı')
+    return fail('getSettings', error, 'Ayarlar alınamadı')
   }
 }
 
@@ -46,7 +48,7 @@ export async function updateCompanyInfo(input: { name: string; description?: str
     })
     return { success: true as const, data: updated }
   } catch (error) {
-    return fail(error, 'Firma bilgileri güncellenemedi')
+    return fail('updateCompanyInfo', error, 'Firma bilgileri güncellenemedi')
   }
 }
 
@@ -71,6 +73,6 @@ export async function deleteAllData(confirmation: string) {
     ])
     return { success: true as const }
   } catch (error) {
-    return fail(error, 'Veriler silinemedi')
+    return fail('deleteAllData', error, 'Veriler silinemedi')
   }
 }

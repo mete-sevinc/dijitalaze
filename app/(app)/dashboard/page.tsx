@@ -23,7 +23,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
-      const result = await getDashboardSummary('demo_company')
+      const result = await getDashboardSummary()
       if (result.success && result.data) {
         setData(result.data)
       }
@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
   async function handleGenerateBriefing() {
     setGeneratingBriefing(true)
-    const result = await generateDailyBriefing('demo_company')
+    const result = await generateDailyBriefing()
     if (result.success && result.data) {
       setBriefing(result.data)
     } else {

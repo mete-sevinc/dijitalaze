@@ -73,7 +73,7 @@ export default function ChatPage() {
     setInput('')
     setSending(true)
 
-    const result = await sendMessage(id, 'demo_company', userMessage.content, currentConversationId)
+    const result = await sendMessage(id, userMessage.content, currentConversationId)
 
     if (result.success && result.data) {
       const data = result.data as { conversationId: string; response: string; messages?: Message[] }

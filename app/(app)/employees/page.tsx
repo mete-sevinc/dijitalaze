@@ -26,7 +26,7 @@ export default function EmployeesPage() {
   async function handleCreate() {
     setSaving(true)
     setFormError(null)
-    const result = await createEmployee('demo_company', {
+    const result = await createEmployee({
       name: form.name.trim(),
       title: form.title.trim(),
       department: form.department.trim(),
@@ -35,7 +35,7 @@ export default function EmployeesPage() {
     if (result.success) {
       setForm({ name: '', title: '', department: '', responsibilities: '' })
       setShowForm(false)
-      const list = await getEmployees('demo_company')
+      const list = await getEmployees()
       if (list.success && list.data) setEmployees(list.data)
     } else {
       setFormError(result.error ?? 'Çalışan oluşturulamadı')
@@ -45,7 +45,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     async function loadEmployees() {
-      const result = await getEmployees('demo_company')
+      const result = await getEmployees()
       if (result.success && result.data) {
         setEmployees(result.data)
       }

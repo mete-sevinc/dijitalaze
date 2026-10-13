@@ -18,8 +18,8 @@ export class AgentRuntime {
     // Load or create conversation
     let conversation
     if (conversationId) {
-      conversation = await prisma.conversation.findUnique({
-        where: { id: conversationId },
+      conversation = await prisma.conversation.findFirst({
+        where: { id: conversationId, employeeId, companyId },
         include: { messages: { orderBy: { createdAt: 'asc' } } },
       })
     } else {

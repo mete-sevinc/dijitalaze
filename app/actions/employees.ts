@@ -4,10 +4,13 @@ import { prisma } from '@/lib/db'
 import { createEmployeeSchema, updateEmployeeSchema } from '@/lib/schemas'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/require-auth'
+import { getCompanyId } from '@/lib/company'
+import { logActionError } from '@/lib/action-log'
 
-export async function getEmployees(companyId: string) {
+export async function getEmployees() {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const employees = await prisma.employee.findMany({
       where: { companyId },
       include: {
@@ -26,19 +29,18 @@ export async function getEmployees(companyId: string) {
       success: true,
       data: employees,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Çalışanlar alınamadı',
-    }
+  } catch (e) {
+    logActionError('getEmployees', e)
+    return { success: false, error: 'Çalışanlar alınamadı' }
   }
 }
 
 export async function getEmployeeById(employeeId: string) {
   await requireAuth()
   try {
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
+    const companyId = await getCompanyId()
+    const employee = await prisma.employee.findFirst({
+      where: { id: employeeId, companyId },
       include: {
         instructions: {
           orderBy: { priority: 'desc' },
@@ -68,18 +70,17 @@ export async function getEmployeeById(employeeId: string) {
       success: true,
       data: employee,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Çalışan detayları alınamadı',
-    }
+  } catch (e) {
+    logActionError('getEmployeeById', e)
+    return { success: false, error: 'Çalışan detayları alınamadı' }
   }
 }
 
-export async function createEmployee(companyId: string, input: z.infer<typeof createEmployeeSchema>) {
+export async function createEmployee(input: z.infer<typeof createEmployeeSchema>) {
   await requireAuth()
   try {
     const validated = createEmployeeSchema.parse(input)
+    const companyId = await getCompanyId()
 
     const employee = await prisma.employee.create({
       data: {
@@ -93,11 +94,9 @@ export async function createEmployee(companyId: string, input: z.infer<typeof cr
       success: true,
       data: employee,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Çalışan oluşturulamadı',
-    }
+  } catch (e) {
+    logActionError('createEmployee', e)
+    return { success: false, error: 'Çalışan oluşturulamadı' }
   }
 }
 
@@ -105,9 +104,10 @@ export async function updateEmployee(employeeId: string, input: z.infer<typeof u
   await requireAuth()
   try {
     const validated = updateEmployeeSchema.parse(input)
+    const companyId = await getCompanyId()
 
     const employee = await prisma.employee.update({
-      where: { id: employeeId },
+      where: { id: employeeId, companyId },
       data: validated,
     })
 
@@ -115,17 +115,16 @@ export async function updateEmployee(employeeId: string, input: z.infer<typeof u
       success: true,
       data: employee,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Çalışan güncellenemedi',
-    }
+  } catch (e) {
+    logActionError('updateEmployee', e)
+    return { success: false, error: 'Çalışan güncellenemedi' }
   }
 }
 
-export async function searchEmployees(companyId: string, query: string, department?: string) {
+export async function searchEmployees(query: string, department?: string) {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const employees = await prisma.employee.findMany({
       where: {
         companyId,
@@ -143,23 +142,20 @@ export async function searchEmployees(companyId: string, query: string, departme
       success: true,
       data: employees,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Arama başarısız',
-    }
+  } catch (e) {
+    logActionError('searchEmployees', e)
+    return { success: false, error: 'Arama başarısız' }
   }
 }
 
 export async function deleteEmployee(employeeId: string) {
   await requireAuth()
   try {
-    await prisma.employee.delete({ where: { id: employeeId } })
+    const companyId = await getCompanyId()
+    await prisma.employee.delete({ where: { id: employeeId, companyId } })
     return { success: true }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Çalışan silinemedi',
-    }
+  } catch (e) {
+    logActionError('deleteEmployee', e)
+    return { success: false, error: 'Çalışan silinemedi' }
   }
 }

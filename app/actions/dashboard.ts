@@ -3,10 +3,13 @@
 import { prisma } from '@/lib/db'
 import { agentRuntime } from '@/lib/agents/runtime'
 import { requireAuth } from '@/lib/require-auth'
+import { getCompanyId } from '@/lib/company'
+import { logActionError } from '@/lib/action-log'
 
-export async function getDashboardSummary(companyId: string) {
+export async function getDashboardSummary() {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const company = await prisma.company.findUnique({
       where: { id: companyId },
     })
@@ -48,18 +51,20 @@ export async function getDashboardSummary(companyId: string) {
         risks,
       },
     }
-  } catch {
+  } catch (e) {
+    logActionError('getDashboardSummary', e)
     return { success: false, error: 'Özet alınamadı' }
   }
 }
 
-export async function generateDailyBriefing(companyId: string) {
+export async function generateDailyBriefing() {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const briefing = await agentRuntime.generateDailyBriefing(companyId)
     return { success: true, data: briefing }
   } catch (error) {
-    console.error('generateDailyBriefing failed', error)
+    logActionError('generateDailyBriefing', error)
     return { success: false, error: 'Günlük özet oluşturulamadı' }
   }
 }

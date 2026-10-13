@@ -3,34 +3,32 @@
 import { prisma } from '@/lib/db'
 import { agentRuntime } from '@/lib/agents/runtime'
 import { requireAuth } from '@/lib/require-auth'
+import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
+import { logActionError } from '@/lib/action-log'
 
-export async function sendMessage(
-  employeeId: string,
-  companyId: string,
-  content: string,
-  conversationId?: string
-) {
+export async function sendMessage(employeeId: string, content: string, conversationId?: string) {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
+    await assertEmployeeInCompany(employeeId, companyId)
     const response = await agentRuntime.runConversation(employeeId, companyId, content, conversationId)
 
     return {
       success: true,
       data: response,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Mesaj gönderilemedi',
-    }
+  } catch (e) {
+    logActionError('sendMessage', e)
+    return { success: false, error: 'Mesaj gönderilemedi' }
   }
 }
 
 export async function getConversations(employeeId: string) {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
     const conversations = await prisma.conversation.findMany({
-      where: { employeeId },
+      where: { employeeId, companyId },
       include: {
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -44,19 +42,18 @@ export async function getConversations(employeeId: string) {
       success: true,
       data: conversations,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Konuşmalar alınamadı',
-    }
+  } catch (e) {
+    logActionError('getConversations', e)
+    return { success: false, error: 'Konuşmalar alınamadı' }
   }
 }
 
 export async function getConversation(conversationId: string) {
   await requireAuth()
   try {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const companyId = await getCompanyId()
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, companyId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -76,17 +73,17 @@ export async function getConversation(conversationId: string) {
       success: true,
       data: conversation,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Konuşma alınamadı',
-    }
+  } catch (e) {
+    logActionError('getConversation', e)
+    return { success: false, error: 'Konuşma alınamadı' }
   }
 }
 
-export async function createConversation(employeeId: string, companyId: string, title: string) {
+export async function createConversation(employeeId: string, title: string) {
   await requireAuth()
   try {
+    const companyId = await getCompanyId()
+    await assertEmployeeInCompany(employeeId, companyId)
     const conversation = await prisma.conversation.create({
       data: {
         employeeId,
@@ -99,10 +96,8 @@ export async function createConversation(employeeId: string, companyId: string, 
       success: true,
       data: conversation,
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Konuşma oluşturulamadı',
-    }
+  } catch (e) {
+    logActionError('createConversation', e)
+    return { success: false, error: 'Konuşma oluşturulamadı' }
   }
 }
