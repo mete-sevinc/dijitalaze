@@ -5,6 +5,7 @@ import { agentTools } from './tools'
 import { contextBuilder } from './context-builder'
 import { runAgent } from '@/lib/ai/agent-loop'
 import { buildEmployeeRunner } from './work'
+import { assertWithinBudget, createUsageTracker } from '@/lib/ai/usage'
 
 export class AgentRuntime {
   private aiProvider = createAIProvider()
@@ -66,6 +67,8 @@ export class AgentRuntime {
 
     // Ortak ajan döngüsü: araç sonuçları modele geri verilir, onay gerektirenler Approval olur
     const { run, hasSideEffects } = buildEmployeeRunner(context, companyId)
+    await assertWithinBudget(employeeId)
+    const usage = createUsageTracker(employeeId)
     const finalResponse =
       (await runAgent({
         system: systemPrompt,
@@ -74,7 +77,8 @@ export class AgentRuntime {
         tools: agentTools,
         run,
         hasSideEffects,
-      })) || 'Bir yanıt üretemedim, tekrar dener misin?'
+        onUsage: usage.add,
+      }).finally(() => usage.flush())) || 'Bir yanıt üretemedim, tekrar dener misin?'
 
     // Save assistant message
     await prisma.message.create({

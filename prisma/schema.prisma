@@ -73,6 +73,7 @@ model Employee {
   reports           EmployeeReport[]
   meetingParticipants MeetingParticipant[]
   approvals         Approval[]
+  usage             AgentUsage[]
 
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
@@ -352,6 +353,19 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   EXPIRED
+}
+
+// Çalışan başına LLM token kullanımı (aylık bütçe kontrolü ve maliyet görünürlüğü).
+model AgentUsage {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([employeeId, createdAt])
 }
 
 model AuditLog {

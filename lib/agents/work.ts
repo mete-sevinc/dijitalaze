@@ -7,6 +7,7 @@ import { agentTools, GATED_TOOLS } from './tools'
 import { contextBuilder } from './context-builder'
 import { executeToolAction } from './tool-executor'
 import { UserError } from '@/lib/action-log'
+import { assertWithinBudget, createUsageTracker } from '@/lib/ai/usage'
 
 const MUTATING_TOOLS = new Set(['update_task', 'add_employee_memory'])
 
@@ -40,7 +41,9 @@ export async function runEmployeeOnTask(taskId: string): Promise<void> {
   if (!task.assigneeId) throw new UserError('Göreve çalışan atanmamış')
   await prisma.task.update({ where: { id: taskId }, data: { status: 'IN_PROGRESS' } })
 
+  const usage = createUsageTracker(task.assigneeId)
   try {
+    await assertWithinBudget(task.assigneeId)
     const ctx = await contextBuilder.buildContext(task.assigneeId, task.companyId)
     const { run, hasSideEffects } = buildEmployeeRunner(ctx, task.companyId)
     const feedback = task.reviewNote
@@ -56,6 +59,7 @@ Sahibin sana bir iş verdi. Gerekirse araçları kullan, sonra teslim edeceğin 
       tools: agentTools,
       run,
       hasSideEffects,
+      onUsage: usage.add,
     })
     await prisma.task.update({
       where: { id: taskId },
@@ -67,6 +71,8 @@ Sahibin sana bir iş verdi. Gerekirse araçları kullan, sonra teslim edeceğin 
       where: { id: taskId },
       data: { status: 'BLOCKED', result: `Çalıştırılamadı: ${e instanceof Error ? e.message.slice(0, 400) : 'bilinmeyen hata'}` },
     })
+  } finally {
+    await usage.flush()
   }
 }
 

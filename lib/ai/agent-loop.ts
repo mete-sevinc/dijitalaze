@@ -16,6 +16,8 @@ export interface AgentRunOptions {
   // Yazma yapan bir araç çalıştıysa sağlayıcı değiştirilmez (aynı işlem iki kez yazılmasın).
   hasSideEffects?: () => boolean
   maxRounds?: number
+  // Her model yanıtı için token kullanımı bildirilir (maliyet/bütçe takibi).
+  onUsage?: (u: { model: string; inputTokens: number; outputTokens: number }) => void
 }
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -49,7 +51,7 @@ function toGeminiSchema(node: unknown): unknown {
 
 // Model yoğun (503/429), zaman aşımında ya da bulunamazsa (404) sıradaki modele geçer.
 // Düşünme kapalı istenir (gecikmeyi kısaltır); model bu alanı reddederse (400) alansız yeniden denenir.
-async function callGemini(apiKey: string, body: Record<string, unknown>): Promise<Response> {
+async function callGemini(apiKey: string, body: Record<string, unknown>): Promise<{ res: Response; model: string }> {
   const models = [...new Set([process.env.GEMINI_MODEL, ...FALLBACK_MODELS].filter((m): m is string => !!m))]
   let last = 'Gemini yanıt vermedi'
   for (const model of models) {
@@ -71,7 +73,7 @@ async function callGemini(apiKey: string, body: Record<string, unknown>): Promis
         break
       }
       console.log(`gemini ${model} thinkingOff=${thinkingOff} status=${res.status} ${Date.now() - t0}ms`)
-      if (res.ok) return res
+      if (res.ok) return { res, model }
       last = `Gemini API ${res.status} (${model}): ${(await res.text()).slice(0, 300)}`
       if (res.status === 400 && thinkingOff) continue
       if (res.status !== 404 && !RETRYABLE.has(res.status)) throw new Error(last)
@@ -97,13 +99,18 @@ async function geminiTurn(o: AgentRunOptions): Promise<string> {
 
   let reply = ''
   for (let round = 0; round < (o.maxRounds ?? 6); round++) {
-    const res = await callGemini(apiKey, {
+    const { res, model } = await callGemini(apiKey, {
       systemInstruction: { parts: [{ text: o.system }] },
       contents,
       tools: declarations.length ? [{ functionDeclarations: declarations }] : undefined,
       generationConfig: { maxOutputTokens: 1500 },
     })
     const data = await res.json()
+    o.onUsage?.({
+      model,
+      inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    })
     const parts: GeminiPart[] = data.candidates?.[0]?.content?.parts ?? []
     reply = parts.map((p) => p.text ?? '').join('')
 
@@ -159,7 +166,13 @@ async function githubModelsTurn(token: string, o: AgentRunOptions): Promise<stri
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`GitHub Models ${res.status}: ${(await res.text()).slice(0, 300)}`)
-    const msg: OpenAIMessage | undefined = (await res.json()).choices?.[0]?.message
+    const data = await res.json()
+    o.onUsage?.({
+      model,
+      inputTokens: data.usage?.prompt_tokens ?? 0,
+      outputTokens: data.usage?.completion_tokens ?? 0,
+    })
+    const msg: OpenAIMessage | undefined = data.choices?.[0]?.message
     reply = msg?.content ?? ''
     const calls = msg?.tool_calls ?? []
     if (calls.length === 0) break

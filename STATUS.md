@@ -56,3 +56,18 @@ Eski AZE Dijital kaydı info@azeotomasyon.com dizininde YOK (3 eski kayıt var).
 - `Employee.collaboration` alanı eklendi (db push yapıldı, nullable). Çalışan detay > Genel'de "İş Birliği Düzeni" olarak düzenlenir.
 - `context-builder.ts` prompta yönetici + iş birliği düzeni + aktif meslektaş listesini (ad/unvan/departman) ekler.
 - Doğrulandı: tsc temiz. Doğrulanmadı: UI'dan kayıt, canlı ajan yanıtında kullanımı; ajanlar arası otomatik devir (araç) henüz yok, sadece prompt bilgisi.
+
+## 2026-10-14: Zemin adım 3 (denetim + kullanım)
+- Her araç çağrısı `AuditLog` (`TOOL_CALL`, yalnız alan adları) yazar (`tool-executor.ts`). Çalışan başına token kullanımı `AgentUsage` tablosunda (`lib/ai/usage.ts`); `EMPLOYEE_MONTHLY_TOKEN_LIMIT` env'i doluysa aylık limit dolunca iş/sohbet başlamaz.
+- Migration `20261014_agent_usage` eklendi; üretimde build'deki `migrate deploy` ile uygulanır. tsc/lint/vitest (51 test) temiz.
+- Doğrulanmadı: canlıda migration, gerçek Gemini kullanım sayısı yazımı. UI'da kullanım/maliyet göstergesi henüz yok.
+- Sıradaki: `EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları.
+
+## 2026-10-13: Güvenlik/kalite maddeleri + Toplantılar/Raporlar
+- Firma kapsamı sunucuda: `companyId` artık istemciden gelmez (`lib/company.ts` `getCompanyId()`); çalışan/görev/talimat/konuşma/onay/toplantı sorguları firmaya göre sınırlı. İkinci kullanıcı gelirse `getCompanyId()` oturumdaki üyelikten türetilmeli (IDOR).
+- Action hata logu: `lib/action-log.ts` (`logActionError`, kasıtlı Türkçe mesajlar için `UserError`/`userMessage`); DB hataları istemciye gitmez.
+- Migration: `prisma/migrations/0_init` baseline (canlı DB'de "uygulandı"). Yeni şema değişikliği = migration dosyası (`npm run db:migrate`); `db push` kaldırıldı. Build yalnız Vercel production'da `migrate deploy` çalıştırır (`scripts/migrate-if-production.mjs`); `prisma.config.ts` Neon `-pooler`'ı atar.
+- CI (`.github/workflows/ci.yml`): boş Postgres'e migration, şema sapma kontrolü, typecheck, lint, vitest, build. İlk koşu başarılı.
+- Testler: `tests/` (vitest 3; vitest 5 `@types/node` ≥22 ister). Auth izin listesi, firma kapsamı, hata sızıntısı, toplantı yaşam döngüsü, rapor üretici.
+- `/reports`: görev verisinden deterministik günlük/haftalık/aylık rapor (LLM yok), `lib/reports.ts`. `/meetings` + `/meetings/[id]`: planla → başlat → not → aksiyon (atanırsa görev açılır) → tamamla/iptal. Canlıda uçtan uca denendi, test verisi silindi.
+- Eksik: toplantıda ajanların kendi aralarında konuşması (çok-ajanlı tur) yok; toplantı/rapor silme arayüzü yok; rapor otomatik zamanlama yok.

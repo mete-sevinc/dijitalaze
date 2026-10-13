@@ -10,7 +10,34 @@ import {
 } from '@/lib/schemas'
 import { TaskStatus, ReportType } from '@prisma/client'
 
+// Her araç çağrısı (başarılı/başarısız) denetim izine yazılır. Girdi değerleri kaydedilmez, yalnızca alan adları.
 export async function executeToolAction(
+  toolName: string,
+  input: Record<string, unknown>,
+  context: AgentContext
+): Promise<ToolResult> {
+  const result = await dispatchTool(toolName, input, context)
+  try {
+    const employee = await prisma.employee.findUnique({ where: { id: context.employeeId }, select: { companyId: true } })
+    if (employee) {
+      await prisma.auditLog.create({
+        data: {
+          companyId: employee.companyId,
+          action: 'TOOL_CALL',
+          entityType: 'Tool',
+          entityId: toolName,
+          userId: context.employeeId,
+          changes: JSON.stringify({ ok: !result.error, error: result.error?.slice(0, 200), fields: Object.keys(input) }),
+        },
+      })
+    }
+  } catch (e) {
+    console.error('tool audit yazılamadı', e instanceof Error ? e.message : e)
+  }
+  return result
+}
+
+async function dispatchTool(
   toolName: string,
   input: Record<string, unknown>,
   context: AgentContext
