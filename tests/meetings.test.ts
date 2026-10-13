@@ -66,7 +66,7 @@ describe('meeting access and lifecycle', () => {
 
   it('completes only an active meeting and needs a summary', async () => {
     prisma.meeting.findFirst.mockResolvedValue({ id: 'm1', status: 'SCHEDULED', title: 't' })
-    expect((await completeMeeting('m1', { summary: 'özet' })).error).toBe('Yalnızca süren toplantı tamamlanabilir')
+    expect(await completeMeeting('m1', { summary: 'özet' })).toEqual({ success: false, error: 'Yalnızca süren toplantı tamamlanabilir' })
     prisma.meeting.findFirst.mockResolvedValue({ id: 'm1', status: 'ACTIVE', title: 't' })
     expect((await completeMeeting('m1', { summary: ' ' })).success).toBe(false)
     expect((await completeMeeting('m1', { summary: 'özet', decisions: ['a'] })).success).toBe(true)
