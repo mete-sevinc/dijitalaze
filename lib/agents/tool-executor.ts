@@ -323,42 +323,44 @@ async function getEmployeeReport(context: AgentContext, input: Record<string, un
 }
 
 async function createMeetingAction(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
-  const meetingId = input.meetingId as string
-  const content = input.content as string
-  const assigneeId = input.assigneeId as string | undefined
+  const meetingId = String(input.meetingId ?? '')
+  const content = String(input.content ?? '').trim().slice(0, 500)
+  const assigneeId = input.assigneeId ? String(input.assigneeId) : undefined
+  const fail = (error: string): ToolResult => ({ toolName: 'create_meeting_action', result: null, error })
+  if (!meetingId || !content) return fail('meetingId and content are required')
 
-  const actionItem = await prisma.meetingActionItem.create({
-    data: {
-      meetingId,
-      content,
-      assigneeId,
-      status: assigneeId ? 'ASSIGNED' : 'OPEN',
-    },
-  })
-
-  if (assigneeId) {
-    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } })
-    if (meeting) {
-      await prisma.task.create({
-        data: {
-          companyId: meeting.companyId,
-          title: content,
-          description: `Action item from meeting: ${meeting.title}`,
-          assigneeId,
-          creatorId: context.employeeId,
-          status: 'TODO',
-          priority: 'HIGH',
-        },
-      })
-    }
+  // The model supplies these ids: both must belong to the acting employee's company.
+  const companyId = await getCompanyId(context.employeeId)
+  const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, companyId }, select: { id: true, title: true, status: true } })
+  if (!meeting) return fail('Meeting not found')
+  if (meeting.status === 'COMPLETED' || meeting.status === 'CANCELLED') return fail('Meeting is closed')
+  if (assigneeId && !(await prisma.employee.findFirst({ where: { id: assigneeId, companyId }, select: { id: true } }))) {
+    return fail('Assignee not found')
   }
+
+  const actionItem = await prisma.$transaction(async (tx) => {
+    const task = assigneeId
+      ? await tx.task.create({
+          data: {
+            companyId,
+            title: content,
+            description: `Toplantı aksiyonu: ${meeting.title}`,
+            assigneeId,
+            creatorId: context.employeeId,
+            status: 'TODO',
+            priority: 'HIGH',
+            source: `meeting:${meeting.id}`,
+          },
+          select: { id: true },
+        })
+      : null
+    return tx.meetingActionItem.create({
+      data: { meetingId: meeting.id, content, assigneeId, taskId: task?.id, status: assigneeId ? 'ASSIGNED' : 'OPEN' },
+    })
+  })
 
   return {
     toolName: 'create_meeting_action',
-    result: {
-      id: actionItem.id,
-      content: actionItem.content,
-      status: actionItem.status,
-    },
+    result: { id: actionItem.id, content: actionItem.content, status: actionItem.status },
   }
 }
