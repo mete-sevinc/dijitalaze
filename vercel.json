@@ -1,4 +1,10 @@
 {
   "framework": "nextjs",
-  "crons": [{ "path": "/api/cron/assistant?job=brief", "schedule": "0 5 * * *" }]
+  "buildCommand": "npm run build",
+  "crons": [
+    {
+      "path": "/api/cron/assistant?job=brief",
+      "schedule": "0 5 * * *"
+    }
+  ]
 }

@@ -10,6 +10,7 @@ Güncelleme: 2026-10-14. Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asis
 - Env (Vercel): DATABASE_URL, AUTH_*, GOOGLE_GENERATIVE_AI_API_KEY (+ isteğe bağlı `GITHUB_MODELS_TOKEN` yedeği, `GEMINI_MODEL`/`AI_PROVIDER`), NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CRON_SECRET, EMPLOYEE_MONTHLY_TOKEN_LIMIT (boş = sınırsız).
 
 ## Veri, dağıtım, kalite
+- Vercel proje ayarında Build Command elle `npx prisma generate && next build` (Framework "Other") olduğundan `package.json` build'i yok sayılıyordu; `vercel.json` `buildCommand: npm run build` ile geçersiz kılar (migration adımı çalışsın diye).
 - Migration: `prisma/migrations` (0_init baseline + `20261014_agent_usage`). Şema değişikliği = `npm run db:migrate` ile migration dosyası; `db push` kaldırıldı. Build (`scripts/migrate-if-production.mjs`) yalnız Vercel production'da `migrate deploy` çalıştırır; hata build'i düşürür. `prisma.config.ts` Neon `-pooler`'ı migration için atar.
 - CI (`.github/workflows/ci.yml`): boş Postgres'e migration, şema sapma kontrolü, typecheck, lint, vitest, build.
 - Testler `tests/` (vitest 3; vitest 5 `@types/node` ≥22 ister). Yerelde: `npm run typecheck && npm run lint && npm test`.
