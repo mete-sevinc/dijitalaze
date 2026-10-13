@@ -1,14 +1,12 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import { MAIL_SCOPE, saveRefreshToken } from '@/lib/assistant/mail'
+import { emailFromProfile, isAllowedEmail, parseAllowedEmails } from '@/lib/auth-policy'
 
 // Env: AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET,
 // AUTH_MICROSOFT_ENTRA_ID_ISSUER (https://login.microsoftonline.com/<tenant-id>/v2.0), AUTH_ALLOWED_EMAIL
 // AUTH_ALLOWED_EMAIL may hold several comma-separated addresses.
-const allowedEmails = (process.env.AUTH_ALLOWED_EMAIL ?? '')
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean)
+const allowedEmails = parseAllowedEmails(process.env.AUTH_ALLOWED_EMAIL)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -27,12 +25,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Girişte e-posta yoksa preferred_username kullanılır (signIn ile aynı kural).
       if (profile) token.email = String(profile.email ?? profile.preferred_username ?? token.email ?? '').toLowerCase()
       const email = String(token.email ?? '').toLowerCase()
-      return email && allowedEmails.includes(email) ? token : null
+      return isAllowedEmail(email, allowedEmails) ? token : null
     },
     // Fail closed: no configured address means nobody gets in.
     async signIn({ profile, account }) {
-      const email = String(profile?.email ?? profile?.preferred_username ?? '').toLowerCase()
-      if (!email || !allowedEmails.includes(email)) return false
+      const email = emailFromProfile(profile)
+      if (!isAllowedEmail(email, allowedEmails)) return false
       // Asistanın bu kullanıcı adına mail gönderebilmesi için yenileme belirteci saklanır.
       if (account?.refresh_token) {
         try {

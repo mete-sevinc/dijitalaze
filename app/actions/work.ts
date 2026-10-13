@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
 import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
-import { logActionError, userMessage } from '@/lib/action-log'
+import { logActionError, UserError, userMessage } from '@/lib/action-log'
 import { assignTaskToEmployee, resolveEmployeeApproval, retryEmployeeTask, reviewEmployeeTask } from '@/lib/agents/work'
 
 const idSchema = z.string().min(1).max(64)
@@ -12,7 +12,7 @@ const textSchema = z.string().trim().min(1).max(4000)
 
 async function assertTaskInCompany(taskId: string) {
   const task = await prisma.task.findFirst({ where: { id: taskId, companyId: await getCompanyId() }, select: { id: true } })
-  if (!task) throw new Error('Görev bulunamadı')
+  if (!task) throw new UserError('Görev bulunamadı')
 }
 
 export async function assignTask(employeeId: string, title: string, description?: string) {
@@ -71,7 +71,7 @@ export async function resolveApproval(approvalId: string, approve: boolean, note
   if (!parsed.success) return { success: false as const, error: 'Geçersiz bilgi' }
   try {
     const found = await prisma.approval.findFirst({ where: { id: parsed.data.id, companyId: await getCompanyId() }, select: { id: true } })
-    if (!found) throw new Error('Onay kaydı bulunamadı')
+    if (!found) throw new UserError('Onay kaydı bulunamadı')
     await resolveEmployeeApproval(parsed.data.id, approve, parsed.data.note)
     return { success: true as const }
   } catch (e) {

@@ -6,6 +6,7 @@ import { AgentContext } from '@/lib/types'
 import { agentTools, GATED_TOOLS } from './tools'
 import { contextBuilder } from './context-builder'
 import { executeToolAction } from './tool-executor'
+import { UserError } from '@/lib/action-log'
 
 const MUTATING_TOOLS = new Set(['update_task', 'add_employee_memory'])
 
@@ -36,7 +37,7 @@ export function buildEmployeeRunner(ctx: AgentContext, companyId: string) {
 
 export async function runEmployeeOnTask(taskId: string): Promise<void> {
   const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } })
-  if (!task.assigneeId) throw new Error('Göreve çalışan atanmamış')
+  if (!task.assigneeId) throw new UserError('Göreve çalışan atanmamış')
   await prisma.task.update({ where: { id: taskId }, data: { status: 'IN_PROGRESS' } })
 
   try {
@@ -105,7 +106,7 @@ async function remember(employeeId: string, content: string, importance: number)
 // Sahibin incelemesi: onay → öğrenilen ders kaydedilir; düzeltme → ders + yeniden çalıştırma.
 export async function reviewEmployeeTask(taskId: string, decision: 'approve' | 'revise', note?: string) {
   const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId } })
-  if (task.status !== 'REVIEW' || !task.assigneeId) throw new Error('Görev inceleme durumunda değil')
+  if (task.status !== 'REVIEW' || !task.assigneeId) throw new UserError('Görev inceleme durumunda değil')
   const n = note?.trim()
 
   if (decision === 'approve') {
@@ -122,7 +123,7 @@ export async function reviewEmployeeTask(taskId: string, decision: 'approve' | '
     return
   }
 
-  if (!n) throw new Error('Düzeltme için not gerekli')
+  if (!n) throw new UserError('Düzeltme için not gerekli')
   const claimed = await prisma.task.updateMany({
     where: { id: taskId, status: 'REVIEW' },
     data: { status: 'TODO', reviewNote: n },
@@ -138,7 +139,7 @@ export async function resolveEmployeeApproval(approvalId: string, approve: boole
     where: { id: approvalId, status: 'PENDING' },
     data: { status: approve ? 'APPROVED' : 'REJECTED', resolvedAt: new Date() },
   })
-  if (claimed.count === 0) throw new Error('Bu onay zaten sonuçlanmış')
+  if (claimed.count === 0) throw new UserError('Bu onay zaten sonuçlanmış')
 
   const payload = approval.payload ? (JSON.parse(approval.payload) as Record<string, unknown>) : {}
   if (approve) {
@@ -166,6 +167,6 @@ export async function retryEmployeeTask(taskId: string) {
     where: { id: taskId, status: 'BLOCKED', assigneeId: { not: null } },
     data: { status: 'TODO', result: null },
   })
-  if (claimed.count === 0) throw new Error('Görev tekrar denenemez')
+  if (claimed.count === 0) throw new UserError('Görev tekrar denenemez')
   after(() => runEmployeeOnTask(taskId))
 }

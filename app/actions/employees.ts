@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import { createEmployeeSchema, updateEmployeeSchema } from '@/lib/schemas'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/require-auth'
-import { getCompanyId } from '@/lib/company'
+import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
 import { logActionError } from '@/lib/action-log'
 
 export async function getEmployees() {
@@ -81,6 +81,7 @@ export async function createEmployee(input: z.infer<typeof createEmployeeSchema>
   try {
     const validated = createEmployeeSchema.parse(input)
     const companyId = await getCompanyId()
+    if (validated.managerId) await assertEmployeeInCompany(validated.managerId, companyId)
 
     const employee = await prisma.employee.create({
       data: {
@@ -105,6 +106,7 @@ export async function updateEmployee(employeeId: string, input: z.infer<typeof u
   try {
     const validated = updateEmployeeSchema.parse(input)
     const companyId = await getCompanyId()
+    if (validated.managerId) await assertEmployeeInCompany(validated.managerId, companyId)
 
     const employee = await prisma.employee.update({
       where: { id: employeeId, companyId },

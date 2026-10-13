@@ -9,8 +9,15 @@ export function logActionError(action: string, error: unknown) {
   }
 }
 
-// Domain errors we throw ourselves carry a Turkish, user-facing message; database/driver errors never reach the client.
+// Errors we throw on purpose with a Turkish, user-facing message. Everything else (database, driver,
+// provider errors) is hidden behind a generic message.
+export class UserError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UserError'
+  }
+}
+
 export function userMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && !/^Prisma|^Neon|^Error$/.test(error.name) && !('code' in error)) return error.message
-  return fallback
+  return error instanceof UserError ? error.message : fallback
 }
