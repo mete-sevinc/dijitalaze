@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
-// Strict CSP needs per-request nonces for Next's inline scripts, so only the directives that do not
-// depend on script sources are set here (clickjacking, plugins, base tag, form targets).
+// The Content-Security-Policy (with a per-request nonce) is set in proxy.ts.
 const securityHeaders = [
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

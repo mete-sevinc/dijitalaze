@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { chatWithAssistant } from '@/lib/assistant/service'
 import { isAllowedPushEndpoint } from '@/lib/assistant/push'
+import { isOverRate } from '@/lib/ai/usage'
 
 async function owner(): Promise<string> {
   const session = await auth()
@@ -17,6 +18,9 @@ export async function sendAssistantMessage(content: string) {
   const email = await owner()
   const text = content.trim().slice(0, 4000)
   if (!text) return { success: false as const, error: 'Boş mesaj' }
+  // Dakikalık hız sınırı (kullanıcı başına): son dakikada gönderilen mesajlar sayılır.
+  const recent = await prisma.assistantMessage.count({ where: { ownerEmail: email, role: 'user', createdAt: { gte: new Date(Date.now() - 60_000) } } })
+  if (isOverRate(recent, 15)) return { success: false as const, error: 'Çok hızlı gidiyorsun, bir dakika bekleyip tekrar dene' }
   try {
     return { success: true as const, reply: await chatWithAssistant(email, text) }
   } catch (error) {
