@@ -5,7 +5,8 @@ import { createEmployeeSchema, updateEmployeeSchema } from '@/lib/schemas'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/require-auth'
 import { assertEmployeeInCompany, getCompanyId } from '@/lib/company'
-import { logActionError } from '@/lib/action-log'
+import { logActionError, UserError, userMessage } from '@/lib/action-log'
+import { wouldCreateCycle } from '@/lib/org'
 
 export async function getEmployees() {
   await requireAuth()
@@ -159,5 +160,37 @@ export async function deleteEmployee(employeeId: string) {
   } catch (e) {
     logActionError('deleteEmployee', e)
     return { success: false, error: 'Çalışan silinemedi' }
+  }
+}
+
+export async function getOrgChart() {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    const people = await prisma.employee.findMany({
+      where: { companyId, status: { not: 'ARCHIVED' } },
+      select: { id: true, name: true, title: true, department: true, avatar: true, status: true, managerId: true },
+      orderBy: { name: 'asc' },
+    })
+    return { success: true as const, data: people }
+  } catch (e) {
+    logActionError('getOrgChart', e)
+    return { success: false as const, error: 'Organizasyon şeması alınamadı' }
+  }
+}
+
+export async function setManager(employeeId: string, managerId: string | null) {
+  await requireAuth()
+  try {
+    const companyId = await getCompanyId()
+    const people = await prisma.employee.findMany({ where: { companyId }, select: { id: true, managerId: true } })
+    if (!people.some((p) => p.id === employeeId)) throw new UserError('Çalışan bulunamadı')
+    if (managerId && !people.some((p) => p.id === managerId)) throw new UserError('Yönetici bulunamadı')
+    if (wouldCreateCycle(people, employeeId, managerId)) throw new UserError('Bu atama raporlama döngüsü oluşturur')
+    await prisma.employee.update({ where: { id: employeeId, companyId }, data: { managerId } })
+    return { success: true as const }
+  } catch (e) {
+    logActionError('setManager', e)
+    return { success: false as const, error: userMessage(e, 'Yönetici atanamadı') }
   }
 }

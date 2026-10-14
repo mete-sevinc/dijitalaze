@@ -163,6 +163,20 @@ export const agentTools: AITool[] = [
     },
   },
   {
+    name: 'delegate_task',
+    description:
+      'Hand one of your open tasks over to a colleague who is better placed to do it (needs owner approval). Use the colleague name or id from the team list.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string', description: 'ID of your task to hand over' },
+        toEmployee: { type: 'string', description: 'Name or id of the colleague who should take it' },
+        note: { type: 'string', description: 'Short handover note: what is done, what remains' },
+      },
+      required: ['taskId', 'toEmployee'],
+    },
+  },
+  {
     name: 'create_meeting_action',
     description: 'Create an action item from a meeting discussion',
     inputSchema: {
@@ -187,7 +201,7 @@ export const agentTools: AITool[] = [
 ]
 
 // İnsan onayı gerektiren araçlar: ajan çağırınca Approval kaydı açılır, sahibi onaylayınca uygulanır.
-export const GATED_TOOLS = new Set(['create_task', 'create_meeting_action'])
+export const GATED_TOOLS = new Set(['create_task', 'create_meeting_action', 'delegate_task'])
 
 export function getToolByName(name: string): AITool | undefined {
   return agentTools.find((tool) => tool.name === name)

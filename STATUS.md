@@ -34,28 +34,28 @@ Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayar
 | 3 | `catch {}` hatayı yutuyor | Yapıldı |
 | 4 | Güvenlik başlıkları/CSP | Kısmen: `next.config.ts` başlıkları (X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS, CSP yalnız `frame-ancestors/object-src/base-uri/form-action`). Tam script CSP'si için nonce gerekir, yapılmadı. `layout.tsx`'teki `dangerouslySetInnerHTML` sabit tema betiği, girdi içermiyor |
 | 5 | `../ai-company-clean.zip` (içinde `.git`) | Yapıldı: çöp kutusuna taşındı (`~/.Trash/ai-company-clean-2026-10-05.zip`), geri alınabilir |
-| 6 | Entra secret rotasyonu | Canlı kayıt `80d2a375-624c-44ab-b649-f1d7851db0bb` (info@ dizini), secret `dijital` **12.10.2027**'de dolar: takvime yaz. Eski kayıt `a86cba04-…` (06.10) kullanılmıyor, silinebilir (secret'ı 2028'e kadar geçerli; silmedim) |
+| 6 | Entra secret rotasyonu | Canlı kayıt `80d2a375-624c-44ab-b649-f1d7851db0bb` (info@ dizini), secret `dijital` **12.10.2027**'de dolar: takvime yaz. Eski kayıt `a86cba04-…` silindi |
 | 7 | Toplantılar/Raporlar stub | Yapıldı (+ çok-ajanlı tur, silme) |
-| 8 | Ajanlar arası otomatik devir | AÇIK (yalnız prompt bilgisi) |
-| 9 | Org chart | AÇIK |
+| 8 | Ajanlar arası otomatik devir | Yapıldı: `delegate_task` aracı (kendi açık görevini meslektaşına devreder, onay kapılı → sahibi onaylayınca yeni sahibi işi hemen başlatır; döngü/ping-pong onayla kesilir). Canlıda ajanla denenmedi |
+| 9 | Org chart | Yapıldı: `/org` (yönetici ağacı, yönetici ataması döngü korumalı `setManager`, `lib/org.ts`) |
 | 10 | `create_meeting_action` aracı | Yapıldı: toplantı/atanan firmaya göre doğrulanır, kayıt+görev tek işlemde, kapalı toplantıya eklenmez |
-| 11 | Onay SONRASI eylemin uygulanması | Doğrulanmadı |
-| 12 | Gemini 400 şema hatası olasılığı | Doğrulanmadı |
+| 11 | Onay SONRASI eylemin uygulanması | Birim testle doğrulandı (`tests/approval.test.ts`: onay→araç çalışır, ret→ders kaydı, çift onay engelli, hata gizlenmez). Canlıda uçtan uca denenmedi |
+| 12 | Gemini 400 şema hatası olasılığı | Kısmen: `tests/tool-schemas.test.ts` tüm araç şemalarını Gemini'nin desteklediği OpenAPI alt kümesine karşı denetler. Gerçek API ile denenmedi (anahtar yalnız Vercel'de) |
 | 13 | Push'un cihazda görünmesi | Doğrulanmadı (sunucu gönderdi) |
 | 14 | Zamanlayıcı zinciri | Çalışıyor (zincir kendini yeniliyor, mail/hatırlatma işlendi); 6 saatlik devri doğrulanmadı |
 | 15 | Yetkisiz hesabın reddi; sayfalar | Sayfalar canlıda doğrulandı (dashboard, görevler, toplantılar, raporlar, ayarlar). Yetkisiz hesap reddi test EDİLMEDİ |
 | 16 | Test yok | Yapıldı (vitest) |
 | 17 | Migration yok | Yapıldı |
 | 18 | CI yok | Yapıldı |
-| 19 | Gözlemlenebilirlik | Kısmen: AuditLog artık yazılıyor, action hataları loglanıyor; hata izleme (Sentry vb.) yok |
+| 19 | Gözlemlenebilirlik | Kısmen: AuditLog yazılıyor, action hataları loglanıyor, `app/(app)/error.tsx` arayüz hatalarını hata koduyla gösterir/loglar; harici hata izleme (Sentry vb.) yok, hesap/DSN gerekir |
 | 20 | Bağımlılık temizliği | Yapıldı: `postgresql` paketi kaldırıldı, `lib/ai/base.ts` ile döngüsel import çözüldü (`require()` yok), Anthropic varsayılanı `claude-sonnet-5-5` |
 | 21 | `tsconfig.tsbuildinfo` | Yapıldı (`*.tsbuildinfo` ignore, izlenmiyor) |
 | 22 | STATUS'ta eski "commit edilmemiş" notu | Yapıldı (bu yeniden yazım) |
-| 23 | İlk iş hatasının sebebi UI'da | Kısmen: BLOCKED görevde `result` gösteriliyor; sebep `result`'a yazılmazsa görünmez |
-| 24 | Gemini zaman aşımında tekrar dene | Kısmen: takılan görevde var, asistan sohbetinde yok |
+| 23 | İlk iş hatasının sebebi UI'da | Yapıldı: BLOCKED görevde sebep `result`'a yazılıyor ve Görevler'de gösteriliyor |
+| 24 | Gemini zaman aşımında tekrar dene | Yapıldı: asistan sohbetinde hata sonrası "Tekrar dene" (aynı mesaj yeniden gönderilir; ilk deneme kaydedildiyse sohbette tekrar görünebilir) |
 
 ## Doğrulanmamış (özet)
 Onay sonrası eylem; push cihaza; yetkisiz hesap reddi; zincirin 6 saatlik devri.
 
 ## Sıradaki
-`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık maddeler: 8, 9, 11-13, 15 (yetkisiz hesap), 19 (hata izleme), 23-24; ayrıca eski Entra kaydı `a86cba04-…` silinmeli, tam CSP.
+`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık: 13 (push cihazda), 15 (yetkisiz hesap canlı testi, bkz. aşağı), tam script CSP (nonce), harici hata izleme, ajanın `delegate_task` ile canlı denemesi. Eski Entra kaydı `a86cba04-…` silindi (15 → 14 kayıt).

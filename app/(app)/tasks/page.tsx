@@ -29,6 +29,7 @@ interface Approval {
 const ACTION_LABELS: Record<string, string> = {
   create_task: 'Görev oluştur',
   create_meeting_action: 'Toplantı aksiyonu oluştur',
+  delegate_task: 'Görevi meslektaşına devret',
 }
 
 const STATUS_LABELS: Record<string, string> = {

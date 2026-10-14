@@ -60,6 +60,8 @@ async function dispatchTool(
         return await getEmployeeReport(context, input)
       case 'create_meeting_action':
         return await createMeetingAction(context, input)
+      case 'delegate_task':
+        return await delegateTask(context, input)
       default:
         return {
           toolName,
@@ -366,4 +368,59 @@ async function createMeetingAction(context: AgentContext, input: Record<string, 
     toolName: 'create_meeting_action',
     result: { id: actionItem.id, content: actionItem.content, status: actionItem.status },
   }
+}
+
+// Hands the caller's open task to a colleague. Gated: runs only after the owner approves, which also
+// prevents A→B→A ping-pong. The new assignee is started by the approval handler.
+async function delegateTask(context: AgentContext, input: Record<string, unknown>): Promise<ToolResult> {
+  const fail = (error: string): ToolResult => ({ toolName: 'delegate_task', result: null, error })
+  const taskId = String(input.taskId ?? '')
+  const target = String(input.toEmployee ?? '').trim()
+  const note = String(input.note ?? '').trim().slice(0, 500)
+  if (!taskId || !target) return fail('taskId and toEmployee are required')
+
+  const companyId = await getCompanyId(context.employeeId)
+  const task = await prisma.task.findFirst({ where: { id: taskId, companyId } })
+  if (!task) return fail('Task not found')
+  if (task.status === 'DONE' || task.status === 'CANCELLED') return fail('Task is closed')
+  const mine = task.assigneeId === context.employeeId
+  if (!mine && !context.permissions.includes('CAN_UPDATE_TASKS') && !context.permissions.includes('ALL')) {
+    return fail('Permission denied: can only hand over your own tasks')
+  }
+
+  const colleagues = await prisma.employee.findMany({
+    where: { companyId, status: 'ACTIVE', id: { not: task.assigneeId ?? undefined } },
+    select: { id: true, name: true },
+  })
+  const t = target.toLowerCase()
+  const exact = colleagues.filter((c) => c.id === target || c.name.toLowerCase() === t)
+  const matches = exact.length ? exact : colleagues.filter((c) => c.name.toLowerCase().split(/\s+/)[0] === t.split(/\s+/)[0])
+  if (matches.length === 0) return fail('Colleague not found')
+  if (matches.length > 1) return fail(`Ambiguous colleague, use the id: ${matches.map((m) => `${m.name} (${m.id})`).join(', ')}`)
+  const to = matches[0]
+
+  const from = task.assigneeId
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id: task.id },
+      data: {
+        assigneeId: to.id,
+        status: 'TODO',
+        result: null,
+        reviewNote: null,
+        description: `${task.description ?? ''}\n\n[Devir] ${context.employeeName} → ${to.name}${note ? `: ${note}` : ''}`.trim(),
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        companyId,
+        action: 'TASK_DELEGATED',
+        entityType: 'Task',
+        entityId: task.id,
+        userId: context.employeeId,
+        changes: JSON.stringify({ from, to: to.id }),
+      },
+    }),
+  ])
+  return { toolName: 'delegate_task', result: { taskId: task.id, assignee: to.name, status: 'TODO' } }
 }

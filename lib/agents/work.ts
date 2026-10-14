@@ -154,6 +154,11 @@ export async function resolveEmployeeApproval(approvalId: string, approve: boole
     const elevated: AgentContext = { ...ctx, permissions: [...ctx.permissions, 'CAN_CREATE_TASKS', 'CAN_UPDATE_TASKS'] }
     const r = await executeToolAction(approval.action, payload, elevated)
     if (r.error) throw new Error(r.error)
+    // Devredilen iş yeni sahibinde hemen başlar.
+    if (approval.action === 'delegate_task') {
+      const taskId = (r.result as { taskId?: string } | null)?.taskId
+      if (taskId) after(() => runEmployeeOnTask(taskId))
+    }
   } else if (note?.trim()) {
     await remember(approval.employeeId, `Reddedilen eylem (${approval.action}): ${approval.payload}. Neden: ${note.trim()}`, 3)
   }

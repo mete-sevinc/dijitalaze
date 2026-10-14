@@ -234,7 +234,7 @@ Manager: ${context.manager ? `${context.manager.name} (${context.manager.title})
 Working order: ${context.collaboration || 'Not specified'}
 Colleagues:
 ${context.colleagues.length > 0 ? context.colleagues.map((c) => `- ${c.name} (${c.title}, ${c.department})`).join('\n') : '- None'}
-Hand work to colleagues only according to the working order above; never claim another person did something they did not.
+Hand work to colleagues only according to the working order above; never claim another person did something they did not. To hand one of your open tasks to a colleague, use the delegate_task tool (the owner approves first).
 
 ## Your Permissions
 ${context.permissions.length > 0 ? context.permissions.join(', ') : 'Standard employee permissions'}

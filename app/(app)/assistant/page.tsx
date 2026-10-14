@@ -48,6 +48,7 @@ export default function AssistantPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failedText, setFailedText] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   async function refresh() {
@@ -93,10 +94,14 @@ export default function AssistantPage() {
     if (!text || sending) return
     setInput('')
     setError(null)
+    setFailedText(null)
     setSending(true)
     setMessages((m) => [...m, { id: `tmp-${Date.now()}`, role: 'user', content: text }])
     const res = await sendAssistantMessage(text)
-    if (!res.success) setError(res.error)
+    if (!res.success) {
+      setError(res.error)
+      setFailedText(text)
+    }
     await refresh().catch(() => {})
     setSending(false)
   }
@@ -150,7 +155,16 @@ export default function AssistantPage() {
           {sending && <p className="text-sm text-slate-500">Asistan yazıyor…</p>}
           <div ref={bottomRef} />
         </div>
-        {error && <p className="px-6 text-sm text-red-600" role="alert">{error}</p>}
+        {error && (
+          <p className="px-6 text-sm text-red-600 flex items-center gap-3" role="alert">
+            {error}
+            {failedText && (
+              <button type="button" disabled={sending} onClick={() => send(failedText)} className="px-3 py-1 border border-red-300 rounded text-xs disabled:opacity-50">
+                Tekrar dene
+              </button>
+            )}
+          </p>
+        )}
         <form
           className="p-4 border-t border-slate-200 flex gap-2"
           onSubmit={(e) => {

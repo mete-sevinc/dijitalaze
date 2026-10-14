@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/dashboard" label="Kontrol Paneli" icon="📊" />
           <NavLink href="/assistant" label="Asistanım" icon="🧠" />
           <NavLink href="/employees" label="Çalışanlar" icon="👥" />
+          <NavLink href="/org" label="Organizasyon" icon="🏢" />
           <NavLink href="/tasks" label="Görevler" icon="✅" />
           <NavLink href="/meetings" label="Toplantılar" icon="🤝" />
           <NavLink href="/reports" label="Raporlar" icon="📄" />
