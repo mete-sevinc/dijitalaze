@@ -1,28 +1,8 @@
-import { AIProvider, AIMessage, AIResponse, AIStreamChunk, AITool } from '@/lib/types'
+import type { AIProvider } from '@/lib/types'
+import { AnthropicProvider } from './anthropic'
+import { GeminiProvider } from './gemini'
 
-export abstract class BaseAIProvider implements AIProvider {
-  protected model: string
-
-  constructor(model: string) {
-    this.model = model
-  }
-
-  abstract sendMessage(
-    messages: AIMessage[],
-    tools?: AITool[],
-    modelOverride?: string
-  ): Promise<AIResponse>
-
-  abstract streamMessage(
-    messages: AIMessage[],
-    tools?: AITool[],
-    modelOverride?: string
-  ): AsyncGenerator<AIStreamChunk>
-
-  protected getModel(modelOverride?: string): string {
-    return modelOverride || this.model
-  }
-}
+export { BaseAIProvider } from './base'
 
 let cachedProvider: AIProvider
 
@@ -32,18 +12,12 @@ export function createAIProvider(type: string = process.env.AI_PROVIDER || 'gemi
   }
 
   if (type === 'anthropic') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AnthropicProvider } = require('./anthropic')
-    const model = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
-    cachedProvider = new AnthropicProvider(model)
+    cachedProvider = new AnthropicProvider(process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5')
     return cachedProvider
   }
 
   if (type === 'gemini') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { GeminiProvider } = require('./gemini')
-    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
-    cachedProvider = new GeminiProvider(model)
+    cachedProvider = new GeminiProvider(process.env.GEMINI_MODEL || 'gemini-3.8-flash')
     return cachedProvider
   }
 

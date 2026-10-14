@@ -1,6 +1,6 @@
 # STATUS
 
-Güncelleme: 2026-10-14. Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asistan, Görünüm, analiz) işleri bu dosyada birleştirildi; yeni oturum buradan başlar.
+Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asistan, Görünüm, analiz) işleri bu dosyada birleştirildi; yeni oturum buradan başlar.
 
 ## Sistem
 - Canlı: https://dijital.aze.com.tr (Vercel + Neon PostgreSQL + GitHub `mete-sevinc/dijitalaze`; `main`'e push = otomatik deploy). DNS Cloudflare'de. Eski `dijitalaze.aze.com.tr` kaldırıldı.
@@ -23,17 +23,18 @@ Güncelleme: 2026-10-14. Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asis
 - Asistan (/assistant): görev/not/hatırlatma/hafıza, personel araçları, e-posta taslak→zamanlı→gönderim, Web Push. Zamanlayıcı: `.github/workflows/scheduler.yml` dakikalık kendini yenileyen zincir → `/api/cron/assistant` (repo secret CRON_SECRET).
 - Denetim ve maliyet: her araç çağrısı `AuditLog` (`TOOL_CALL`, yalnız alan adları); çalışan başına token `AgentUsage`; aylık limit dolunca iş/sohbet/toplantı konuşması başlamaz. UI'da kullanım göstergesi yok.
 - Raporlar (/reports): görev verisinden deterministik günlük/haftalık/aylık rapor (LLM yok), tekil silme.
+- Canlıda doğrulandı (2026-10-14): çok-ajanlı tur (gerçek Gemini, 2 ajan sırayla konuştu, kullanım kayıtları yazıldı) ve yapay zekâ özet/karar/aksiyon taslağı; migration Vercel build'inde otomatik uygulandı. Not: özet taslağı bazen önerileri "kararlaştırılmıştır" diye yazar; sahibi kontrol eder.
 - Toplantılar (/meetings): planla → başlat → **çok-ajanlı tur** (her istekte tek konuşmacı, sıra ve kişi başı 3 söz sınırı sunucuda, araçsız, içerik veri olarak çerçevelenir) → not → aksiyon (atanırsa görev açılır) → yapay zekâ özet/karar/aksiyon **taslağı** (kaydedilmez, sahibi onaylar) → tamamla/iptal; silme (aksiyondan açılan görevler kalır).
 
 ## Analiz maddeleri (analiz oturumu, 24 madde) durumu
 | # | Madde | Durum |
 |---|---|---|
 | 1 | IDOR / firma kapsamı | Yapıldı (tek firma için). İkinci kullanıcıdan önce üyelik tablosu + `getCompanyId()` oturumdan türetilmeli |
-| 2 | Rate limit yok | AÇIK |
+| 2 | Rate limit yok | Yapıldı (model çağrıları): tüm çalışanlar toplamında dakikada 40 çağrı (`assertWithinBudget`, `AgentUsage` sayımı). Asistan sohbeti ve HTTP düzeyi sınır YOK |
 | 3 | `catch {}` hatayı yutuyor | Yapıldı |
-| 4 | Güvenlik başlıkları/CSP | AÇIK (`next.config.ts` boş). `layout.tsx`'teki `dangerouslySetInnerHTML` sabit tema betiği, girdi içermiyor; CSP için nonce/hash gerekir |
-| 5 | `../ai-company-clean.zip` (içinde `.git`) | AÇIK, silinmedi; işi bittiyse elle sil |
-| 6 | Entra secret rotasyonu | AÇIK: yeni kaydın secret bitiş tarihi bu dosyada yok, Entra'dan bakıp takvime yaz |
+| 4 | Güvenlik başlıkları/CSP | Kısmen: `next.config.ts` başlıkları (X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS, CSP yalnız `frame-ancestors/object-src/base-uri/form-action`). Tam script CSP'si için nonce gerekir, yapılmadı. `layout.tsx`'teki `dangerouslySetInnerHTML` sabit tema betiği, girdi içermiyor |
+| 5 | `../ai-company-clean.zip` (içinde `.git`) | Yapıldı: çöp kutusuna taşındı (`~/.Trash/ai-company-clean-2026-10-05.zip`), geri alınabilir |
+| 6 | Entra secret rotasyonu | Canlı kayıt `80d2a375-624c-44ab-b649-f1d7851db0bb` (info@ dizini), secret `dijital` **12.10.2027**'de dolar: takvime yaz. Eski kayıt `a86cba04-…` (06.10) kullanılmıyor, silinebilir (secret'ı 2028'e kadar geçerli; silmedim) |
 | 7 | Toplantılar/Raporlar stub | Yapıldı (+ çok-ajanlı tur, silme) |
 | 8 | Ajanlar arası otomatik devir | AÇIK (yalnız prompt bilgisi) |
 | 9 | Org chart | AÇIK |
@@ -47,14 +48,14 @@ Güncelleme: 2026-10-14. Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asis
 | 17 | Migration yok | Yapıldı |
 | 18 | CI yok | Yapıldı |
 | 19 | Gözlemlenebilirlik | Kısmen: AuditLog artık yazılıyor, action hataları loglanıyor; hata izleme (Sentry vb.) yok |
-| 20 | Bağımlılık temizliği | AÇIK: `postgresql` paketi, `lib/ai/provider.ts` `require()` ve eski Anthropic varsayılan modeli |
+| 20 | Bağımlılık temizliği | Yapıldı: `postgresql` paketi kaldırıldı, `lib/ai/base.ts` ile döngüsel import çözüldü (`require()` yok), Anthropic varsayılanı `claude-sonnet-5-5` |
 | 21 | `tsconfig.tsbuildinfo` | Yapıldı (`*.tsbuildinfo` ignore, izlenmiyor) |
 | 22 | STATUS'ta eski "commit edilmemiş" notu | Yapıldı (bu yeniden yazım) |
 | 23 | İlk iş hatasının sebebi UI'da | Kısmen: BLOCKED görevde `result` gösteriliyor; sebep `result`'a yazılmazsa görünmez |
 | 24 | Gemini zaman aşımında tekrar dene | Kısmen: takılan görevde var, asistan sohbetinde yok |
 
 ## Doğrulanmamış (özet)
-Canlıda yeni `AgentUsage` migration'ı ve gerçek kullanım yazımı; çok-ajanlı turun canlıda gerçek Gemini ile çalışması; onay sonrası eylem; push cihaza; yetkisiz hesap reddi; zincirin 6 saatlik devri.
+Onay sonrası eylem; push cihaza; yetkisiz hesap reddi; zincirin 6 saatlik devri.
 
 ## Sıradaki
-`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık maddeler: 2, 4, 5, 6, 20.
+`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık maddeler: 8, 9, 11-13, 15 (yetkisiz hesap), 19 (hata izleme), 23-24; ayrıca eski Entra kaydı `a86cba04-…` silinmeli, tam CSP.

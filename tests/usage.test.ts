@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isOverBudget, monthlyTokenLimit } from '@/lib/ai/usage'
+import { isOverBudget, isOverRate, LLM_CALLS_PER_MINUTE, monthlyTokenLimit } from '@/lib/ai/usage'
 
 describe('token bütçesi', () => {
   it('limit tanımsız, 0, negatif veya geçersizse kapalıdır', () => {
@@ -13,5 +13,13 @@ describe('token bütçesi', () => {
     expect(isOverBudget(999, 1000)).toBe(false)
     expect(isOverBudget(1000, 1000)).toBe(true)
     expect(isOverBudget(10_000_000, 0)).toBe(false)
+  })
+})
+
+describe('dakikalık hız sınırı', () => {
+  it('sınıra ulaşınca engeller, altında izin verir', () => {
+    expect(isOverRate(LLM_CALLS_PER_MINUTE - 1)).toBe(false)
+    expect(isOverRate(LLM_CALLS_PER_MINUTE)).toBe(true)
+    expect(isOverRate(5, 5)).toBe(true)
   })
 })

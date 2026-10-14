@@ -29,8 +29,18 @@ export async function monthlyTokensUsed(employeeId: string): Promise<number> {
   return (r._sum.inputTokens ?? 0) + (r._sum.outputTokens ?? 0)
 }
 
-// Modele gitmeden önce çağrılır; bütçe dolduysa iş başlamaz.
+// Tüm çalışanlar toplamında dakikadaki model çağrısı üst sınırı (döngü/kötüye kullanım koruması).
+// Sunucusuz ortamda bellek içi sayaç güvenilmez; son dakikanın AgentUsage kayıtları sayılır.
+export const LLM_CALLS_PER_MINUTE = 40
+
+export function isOverRate(recentCalls: number, limit = LLM_CALLS_PER_MINUTE): boolean {
+  return recentCalls >= limit
+}
+
+// Modele gitmeden önce çağrılır; bütçe dolduysa ya da dakikalık hız sınırı aşıldıysa iş başlamaz.
 export async function assertWithinBudget(employeeId: string): Promise<void> {
+  const recent = await prisma.agentUsage.count({ where: { createdAt: { gte: new Date(Date.now() - 60_000) } } })
+  if (isOverRate(recent)) throw new UserError('Çok fazla istek var, bir dakika sonra tekrar dene')
   const limit = monthlyTokenLimit()
   if (!limit) return
   if (isOverBudget(await monthlyTokensUsed(employeeId), limit)) {

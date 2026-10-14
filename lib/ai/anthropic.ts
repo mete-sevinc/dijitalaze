@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { BaseAIProvider } from './provider'
+import { BaseAIProvider } from './base'
 import { AIMessage, AIResponse, AIStreamChunk, AITool, AIToolUse } from '@/lib/types'
 import {
   TextBlock,

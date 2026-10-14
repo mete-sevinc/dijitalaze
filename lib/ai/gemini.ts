@@ -1,4 +1,4 @@
-import { BaseAIProvider } from './provider'
+import { BaseAIProvider } from './base'
 import { AIMessage, AIResponse, AIStreamChunk, AITool, AIToolUse } from '@/lib/types'
 
 interface GeminiContent {
