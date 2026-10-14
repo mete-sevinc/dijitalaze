@@ -1,6 +1,6 @@
 # STATUS
 
-Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asistan, Görünüm, analiz) işleri bu dosyada birleştirildi; yeni oturum buradan başlar.
+Güncelleme: 2026-10-14 (gece). Tüm dijitalaze oturumlarının (kurulum, Ayarlar, Asistan, Görünüm, analiz) işleri bu dosyada birleştirildi; yeni oturum buradan başlar.
 
 ## Sistem
 - Canlı: https://dijital.aze.com.tr (Vercel + Neon PostgreSQL + GitHub `mete-sevinc/dijitalaze`; `main`'e push = otomatik deploy). DNS Cloudflare'de. Eski `dijitalaze.aze.com.tr` kaldırıldı.
@@ -30,24 +30,24 @@ Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayar
 | # | Madde | Durum |
 |---|---|---|
 | 1 | IDOR / firma kapsamı | Yapıldı (tek firma için). İkinci kullanıcıdan önce üyelik tablosu + `getCompanyId()` oturumdan türetilmeli |
-| 2 | Rate limit yok | Yapıldı (model çağrıları): tüm çalışanlar toplamında dakikada 40 çağrı (`assertWithinBudget`, `AgentUsage` sayımı). Asistan sohbeti ve HTTP düzeyi sınır YOK |
+| 2 | Rate limit yok | Yapıldı: model çağrıları tüm çalışanlar toplamında dakikada 40 (`assertWithinBudget`), asistan sohbeti kullanıcı başına dakikada 15 mesaj. HTTP düzeyinde genel sınır yok (tek kullanıcı, Entra arkasında) |
 | 3 | `catch {}` hatayı yutuyor | Yapıldı |
-| 4 | Güvenlik başlıkları/CSP | Kısmen: `next.config.ts` başlıkları (X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS, CSP yalnız `frame-ancestors/object-src/base-uri/form-action`). Tam script CSP'si için nonce gerekir, yapılmadı. `layout.tsx`'teki `dangerouslySetInnerHTML` sabit tema betiği, girdi içermiyor |
+| 4 | Güvenlik başlıkları/CSP | Yapıldı: `next.config.ts` başlıkları (X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS) + `proxy.ts`'te istek başına nonce'lu CSP (`lib/csp.ts`: script-src nonce + strict-dynamic, style'da `unsafe-inline` çünkü React inline style kullanıyor). Canlıda doğrulandı: sayfalar, 404, giriş/çıkış akışı, konsolda ihlal yok. Kök layout nonce için sayfaları dinamik yapar |
 | 5 | `../ai-company-clean.zip` (içinde `.git`) | Yapıldı: çöp kutusuna taşındı (`~/.Trash/ai-company-clean-2026-10-05.zip`), geri alınabilir |
 | 6 | Entra secret rotasyonu | Canlı kayıt `80d2a375-624c-44ab-b649-f1d7851db0bb` (info@ dizini), secret `dijital` **12.10.2027**'de dolar: takvime yaz. Eski kayıt `a86cba04-…` silindi |
 | 7 | Toplantılar/Raporlar stub | Yapıldı (+ çok-ajanlı tur, silme) |
-| 8 | Ajanlar arası otomatik devir | Yapıldı: `delegate_task` aracı (kendi açık görevini meslektaşına devreder, onay kapılı → sahibi onaylayınca yeni sahibi işi hemen başlatır; döngü/ping-pong onayla kesilir). Canlıda ajanla denenmedi |
+| 8 | Ajanlar arası otomatik devir | Yapıldı ve canlıda doğrulandı: Ayşe `delegate_task` çağırdı → onay bekledi → onaylanınca görev Mehmet'e geçti (devir notuyla), Mehmet işi yapıp İNCELEME'ye düşürdü. Onay kapılı olduğu için ajanlar arası ping-pong olmaz |
 | 9 | Org chart | Yapıldı: `/org` (yönetici ağacı, yönetici ataması döngü korumalı `setManager`, `lib/org.ts`) |
 | 10 | `create_meeting_action` aracı | Yapıldı: toplantı/atanan firmaya göre doğrulanır, kayıt+görev tek işlemde, kapalı toplantıya eklenmez |
-| 11 | Onay SONRASI eylemin uygulanması | Birim testle doğrulandı (`tests/approval.test.ts`: onay→araç çalışır, ret→ders kaydı, çift onay engelli, hata gizlenmez). Canlıda uçtan uca denenmedi |
-| 12 | Gemini 400 şema hatası olasılığı | Kısmen: `tests/tool-schemas.test.ts` tüm araç şemalarını Gemini'nin desteklediği OpenAPI alt kümesine karşı denetler. Gerçek API ile denenmedi (anahtar yalnız Vercel'de) |
-| 13 | Push'un cihazda görünmesi | Doğrulanmadı (sunucu gönderdi) |
-| 14 | Zamanlayıcı zinciri | Çalışıyor (zincir kendini yeniliyor, mail/hatırlatma işlendi); 6 saatlik devri doğrulanmadı |
+| 11 | Onay SONRASI eylemin uygulanması | Yapıldı: birim testler (`tests/approval.test.ts`) + canlıda uçtan uca (onay → eylem uygulandı, denetim kaydı yazıldı) |
+| 12 | Gemini 400 şema hatası olasılığı | Yapıldı: `tests/tool-schemas.test.ts` + canlıda gerçek Gemini (`gemini-flash-lite-latest`) tüm araç tanımlarıyla hatasız yanıt verdi ve aracı doğru parametreyle çağırdı |
+| 13 | Push'un cihazda görünmesi | Yapıldı: sunucudan gerçek push gönderildi, service worker bildirimi bu cihazda gösterdi (`getNotifications()` ile doğrulandı); sabah özeti bildirimi de gösterilmiş |
+| 14 | Zamanlayıcı zinciri | Yapıldı: zincir 5 kez ardışık devredildi (≈29 saat kesintisiz, GitHub Actions geçmişinde `workflow_dispatch` success zinciri) |
 | 15 | Yetkisiz hesabın reddi; sayfalar | Sayfalar canlıda doğrulandı (dashboard, görevler, toplantılar, raporlar, ayarlar). Yetkisiz hesap reddi canlıda doğrulandı (2026-10-14): izin listesinde olmayan `info@azeotomasyon.com` ile giriş → `/giris-hatasi?error=AccessDenied` "Erişim yok", oturum açılmadı, `/dashboard` giriş sayfasına yönlendi |
 | 16 | Test yok | Yapıldı (vitest) |
 | 17 | Migration yok | Yapıldı |
 | 18 | CI yok | Yapıldı |
-| 19 | Gözlemlenebilirlik | Kısmen: AuditLog yazılıyor, action hataları loglanıyor, `app/(app)/error.tsx` arayüz hatalarını hata koduyla gösterir/loglar; harici hata izleme (Sentry vb.) yok, hesap/DSN gerekir |
+| 19 | Gözlemlenebilirlik | Kısmen (hesap gerektiren kısım hariç): AuditLog yazılıyor, action hataları bağlamıyla loglanıyor (Vercel Logs), `app/(app)/error.tsx` arayüz hatalarını hata koduyla gösterir. Harici hata izleme (Sentry vb.) hesap/DSN gerektirir, kurulmadı |
 | 20 | Bağımlılık temizliği | Yapıldı: `postgresql` paketi kaldırıldı, `lib/ai/base.ts` ile döngüsel import çözüldü (`require()` yok), Anthropic varsayılanı `claude-sonnet-5-5` |
 | 21 | `tsconfig.tsbuildinfo` | Yapıldı (`*.tsbuildinfo` ignore, izlenmiyor) |
 | 22 | STATUS'ta eski "commit edilmemiş" notu | Yapıldı (bu yeniden yazım) |
@@ -55,7 +55,7 @@ Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayar
 | 24 | Gemini zaman aşımında tekrar dene | Yapıldı: asistan sohbetinde hata sonrası "Tekrar dene" (aynı mesaj yeniden gönderilir; ilk deneme kaydedildiyse sohbette tekrar görünebilir) |
 
 ## Doğrulanmamış (özet)
-Onay sonrası eylemin canlıda uçtan uca denenmesi; `delegate_task`'ın gerçek ajanla denenmesi; push cihaza; gerçek Gemini API ile tüm araç şemaları; zincirin 6 saatlik devri.
+Gerçek Graph (Entra) ile toplu kullanıcı senaryoları (tek kullanıcı var); harici hata izleme yok; Vercel Hobby'de Fluid süre sınırları ağır toplantı turlarında denenmedi (tur her istekte tek konuşmacı olduğu için beklenmiyor).
 
 ## Sıradaki
-`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık: 13 (push cihazda), tam script CSP (nonce), harici hata izleme, ajanın `delegate_task` ile canlı denemesi. Eski Entra kaydı `a86cba04-…` silindi (15 → 14 kayıt).
+`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → ikinci kullanıcı gelmeden firma-üyelik tablosu (IDOR notu) → harici hata izleme. Tüm analiz maddeleri kapalı; yalnızca 1 (ikinci kullanıcı öncesi üyelik) ve 19 (harici izleme) notlu.
