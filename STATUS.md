@@ -43,7 +43,7 @@ Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayar
 | 12 | Gemini 400 şema hatası olasılığı | Kısmen: `tests/tool-schemas.test.ts` tüm araç şemalarını Gemini'nin desteklediği OpenAPI alt kümesine karşı denetler. Gerçek API ile denenmedi (anahtar yalnız Vercel'de) |
 | 13 | Push'un cihazda görünmesi | Doğrulanmadı (sunucu gönderdi) |
 | 14 | Zamanlayıcı zinciri | Çalışıyor (zincir kendini yeniliyor, mail/hatırlatma işlendi); 6 saatlik devri doğrulanmadı |
-| 15 | Yetkisiz hesabın reddi; sayfalar | Sayfalar canlıda doğrulandı (dashboard, görevler, toplantılar, raporlar, ayarlar). Yetkisiz hesap reddi test EDİLMEDİ |
+| 15 | Yetkisiz hesabın reddi; sayfalar | Sayfalar canlıda doğrulandı (dashboard, görevler, toplantılar, raporlar, ayarlar). Yetkisiz hesap reddi canlıda doğrulandı (2026-10-14): izin listesinde olmayan `info@azeotomasyon.com` ile giriş → `/giris-hatasi?error=AccessDenied` "Erişim yok", oturum açılmadı, `/dashboard` giriş sayfasına yönlendi |
 | 16 | Test yok | Yapıldı (vitest) |
 | 17 | Migration yok | Yapıldı |
 | 18 | CI yok | Yapıldı |
@@ -55,7 +55,7 @@ Güncelleme: 2026-10-14 (akşam). Tüm dijitalaze oturumlarının (kurulum, Ayar
 | 24 | Gemini zaman aşımında tekrar dene | Yapıldı: asistan sohbetinde hata sonrası "Tekrar dene" (aynı mesaj yeniden gönderilir; ilk deneme kaydedildiyse sohbette tekrar görünebilir) |
 
 ## Doğrulanmamış (özet)
-Onay sonrası eylem; push cihaza; yetkisiz hesap reddi; zincirin 6 saatlik devri.
+Onay sonrası eylemin canlıda uçtan uca denenmesi; `delegate_task`'ın gerçek ajanla denenmesi; push cihaza; gerçek Gemini API ile tüm araç şemaları; zincirin 6 saatlik devri.
 
 ## Sıradaki
-`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık: 13 (push cihazda), 15 (yetkisiz hesap canlı testi, bkz. aşağı), tam script CSP (nonce), harici hata izleme, ajanın `delegate_task` ile canlı denemesi. Eski Entra kaydı `a86cba04-…` silindi (15 → 14 kayıt).
+`EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → org chart → ajanlar arası devir. Açık: 13 (push cihazda), tam script CSP (nonce), harici hata izleme, ajanın `delegate_task` ile canlı denemesi. Eski Entra kaydı `a86cba04-…` silindi (15 → 14 kayıt).
