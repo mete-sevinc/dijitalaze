@@ -11,7 +11,9 @@ function config() {
   const user = process.env.SUITECRM_USER
   const password = process.env.SUITECRM_PASSWORD
   if (!url || !user || !password) throw new Error('SuiteCRM bağlantısı yapılandırılmamış (SUITECRM_URL/USER/PASSWORD)')
-  return { endpoint: `${url.replace(/\/$/, '')}/service/v4_1/rest.php`, user, password }
+  const u = new URL(url)
+  if (u.protocol !== 'https:' || u.username || u.password) throw new Error('SUITECRM_URL https olmalı ve kimlik bilgisi içermemeli')
+  return { endpoint: new URL('/service/v4_1/rest.php', u.origin).toString(), user, password }
 }
 
 async function call<T>(endpoint: string, method: string, data: unknown): Promise<T> {
@@ -21,7 +23,7 @@ async function call<T>(endpoint: string, method: string, data: unknown): Promise
     response_type: 'JSON',
     rest_data: JSON.stringify(data),
   })
-  const res = await fetch(endpoint, { method: 'POST', body, signal: AbortSignal.timeout(TIMEOUT_MS) })
+  const res = await fetch(endpoint, { method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(TIMEOUT_MS) })
   if (!res.ok) throw new Error(`SuiteCRM yanıt vermedi (${res.status})`)
   const json = (await res.json()) as T & { name?: string; description?: string }
   if (json && typeof json === 'object' && 'name' in json && 'number' in json && json.description) {
@@ -47,6 +49,9 @@ async function listEntries(module: string, query: string, fields: string[], orde
   })
 }
 
+// CRM alanları serbest metindir (güvenilmeyen veri): kontrol karakterleri atılır, uzunluk sınırlanır.
+const clean = (v: string) => v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 120)
+
 // Bekleyen = henüz kabul/ret/kapanış almamış teklifler.
 export async function pendingQuotes(limit = 25) {
   const rows = await listEntries(
@@ -57,7 +62,7 @@ export async function pendingQuotes(limit = 25) {
     Math.min(Math.max(limit, 1), 50)
   )
   return rows.map((r) => ({
-    no: r.number, ad: r.name, aşama: r.stage, tutar: r.total_amount, müşteri: r.billing_account,
-    geçerlilik: r.expiration, oluşturma: r.date_entered, sorumlu: r.assigned_user_name,
+    no: clean(r.number), ad: clean(r.name), aşama: clean(r.stage), tutar: clean(r.total_amount), müşteri: clean(r.billing_account),
+    geçerlilik: clean(r.expiration), oluşturma: clean(r.date_entered), sorumlu: clean(r.assigned_user_name),
   }))
 }
