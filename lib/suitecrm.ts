@@ -66,3 +66,24 @@ export async function pendingQuotes(limit = 25) {
     geçerlilik: clean(r.expiration), oluşturma: clean(r.date_entered), sorumlu: clean(r.assigned_user_name),
   }))
 }
+
+const STATUS_TR: Record<string, string> = { 'Not Started': 'Başlatılmadı', 'In Progress': 'Devam ediyor' }
+
+// month: 'YYYY-MM' (verilmezse İstanbul saatine göre içinde bulunulan ay). Tarih sınırları doğrulanmış sayılardan üretilir.
+export async function ybaEndingIn(month?: string) {
+  const m = month ?? new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' }).slice(0, 7)
+  const [y, mo] = m.split('-').map(Number)
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) throw new Error('Ay YYYY-MM biçiminde olmalı')
+  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate()
+  const rows = await listEntries(
+    'AOS_Contracts',
+    `aos_contracts.end_date BETWEEN '${m}-01' AND '${m}-${String(last).padStart(2, '0')}' AND aos_contracts.status <> 'Iptal_Edildi'`,
+    ['name', 'status', 'start_date', 'end_date', 'contract_account', 'total_contract_value', 'assigned_user_name'],
+    'end_date ASC',
+    50
+  )
+  return rows.map((r) => ({
+    ad: clean(r.name), müşteri: clean(r.contract_account), başlangıç: clean(r.start_date), bitiş: clean(r.end_date),
+    durum: STATUS_TR[r.status] ?? clean(r.status), değer: clean(r.total_contract_value), sorumlu: clean(r.assigned_user_name),
+  }))
+}
