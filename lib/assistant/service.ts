@@ -4,6 +4,7 @@ import { runAgent, ToolSpec } from '@/lib/ai/agent-loop'
 import { assignTaskToEmployee } from '@/lib/agents/work'
 import { sendDraftNow } from './emails'
 import { hasMailAccount } from './mail'
+import { pendingQuotes } from '@/lib/suitecrm'
 
 const HISTORY_LIMIT = 20
 const MEMORY_LIMIT = 40
@@ -105,6 +106,12 @@ const tools: ToolSpec[] = [
     name: 'forget',
     description: 'Hafızandaki bir kaydı siler (yanlış ya da eskimiş bilgi). id, hafıza listesinde köşeli parantez içindedir.',
     inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
+  },
+  {
+    name: 'crm_pending_quotes',
+    description:
+      'SuiteCRM\'den bekleyen (henüz kabul/ret almamış: taslak, görüşmede, iletildi, beklemede) teklifleri listeler. "Bekleyen teklifler" sorulduğunda kullan. Salt okunur.',
+    inputSchema: { type: 'object', properties: { limit: { type: 'number', description: 'En çok kaç teklif (varsayılan 25)' } }, required: [] },
   },
   {
     name: 'list_employees',
@@ -315,6 +322,10 @@ async function runTool(owner: string, name: string, input: unknown, draftedThisT
       const p = forgetInput.parse(input)
       const r = await prisma.assistantMemory.deleteMany({ where: { id: p.id, ownerEmail: owner } })
       return { deleted: r.count }
+    }
+    case 'crm_pending_quotes': {
+      const p = z.object({ limit: z.number().int().min(1).max(50).optional() }).parse(input)
+      return pendingQuotes(p.limit)
     }
     case 'list_employees': {
       const companyId = await getCompanyId()
