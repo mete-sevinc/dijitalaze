@@ -91,7 +91,7 @@ export async function searchCrm(query: string, opts: { module?: string; limit?: 
     FROM "CrmRecord"
     WHERE (
       to_tsvector('turkish', "title" || ' ' || "content") @@ websearch_to_tsquery('turkish', ${q})
-      OR ("title" || ' ' || "content") ILIKE ALL (${patterns}::text[])
+      OR (${Prisma.join(patterns.map((p) => Prisma.sql`("title" || ' ' || "content") ILIKE ${p}`), ' AND ')})
     ) ${moduleFilter}
     ORDER BY ts_rank(setweight(to_tsvector('turkish', "title"), 'A') || setweight(to_tsvector('turkish', "content"), 'C'), websearch_to_tsquery('turkish', ${q})) DESC,
              "crmModifiedAt" DESC NULLS LAST
