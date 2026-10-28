@@ -465,3 +465,31 @@ model AssistantEmail {
   @@index([ownerEmail, status])
   @@index([status, scheduledAt])
 }
+
+// SuiteCRM kayıtlarının salt okunur aranabilir kopyası (lib/crm-sync.ts doldurur).
+model CrmRecord {
+  id            String    @id @default(cuid())
+  module        String
+  recordId      String
+  title         String
+  content       String
+  crmModifiedAt DateTime?
+  syncedAt      DateTime
+
+  @@unique([module, recordId])
+  @@index([module, syncedAt])
+}
+
+// Modül başına senkron ilerlemesi: bitmiş geçişin filigranı (since) ve süren geçişin imleci.
+model CrmSyncState {
+  module        String    @id
+  since         String?
+  inPass        Boolean   @default(false)
+  fullPass      Boolean   @default(false)
+  passSince     String?
+  pageOffset    Int       @default(0)
+  maxSeen       String?
+  passStartedAt DateTime?
+  lastFullAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+}

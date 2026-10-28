@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx --env-file=.env.local prisma/seed.ts",
+    "crm:sync": "tsx --env-file=.env.local scripts/crm-sync.ts",
     "db:reset": "prisma migrate reset --force",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

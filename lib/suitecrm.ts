@@ -49,6 +49,33 @@ async function listEntries(module: string, query: string, fields: string[], orde
   })
 }
 
+// İndeks senkronu için: tüm alanlarıyla, date_modified sırasıyla sayfalı okuma. Oturum bir kez açılır.
+// Modül adı ve filigran biçimi doğrulanır; sorguya yalnız doğrulanmış değerler girer.
+export async function crmReader() {
+  const { endpoint, user, password } = config()
+  const login = await call<{ id?: string }>(endpoint, 'login', {
+    user_auth: { user_name: user, password: createHash('md5').update(password).digest('hex') },
+    application_name: 'dijitalaze',
+  })
+  if (!login.id) throw new Error('SuiteCRM girişi başarısız (kullanıcı adı/şifre)')
+  const session = login.id
+  return {
+    async page(module: string, since: string | null, offset: number, max: number) {
+      if (!/^[A-Za-z_]+$/.test(module)) throw new Error('Geçersiz modül adı')
+      if (since !== null && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(since)) throw new Error('Geçersiz filigran')
+      const t = module.toLowerCase()
+      const out = await call<{ entry_list?: Entry[] }>(endpoint, 'get_entry_list', [
+        session, module, since ? `${t}.date_modified >= '${since}'` : '', 'date_modified ASC, id ASC', // SuiteCRM yalnız tablo öneksiz order_by'ı uygular (önekliyi sessizce yok sayar)
+        offset, [], [], max, 0, false,
+      ])
+      return (out.entry_list ?? []).map((e) => ({
+        id: e.id,
+        fields: Object.fromEntries(Object.entries(e.name_value_list ?? {}).map(([k, v]) => [k, String(v?.value ?? '')])),
+      }))
+    },
+  }
+}
+
 // CRM alanları serbest metindir (güvenilmeyen veri): kontrol karakterleri atılır, uzunluk sınırlanır.
 const clean = (v: string) => v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 120)
 

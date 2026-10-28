@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/assistant?job=brief",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/crm-sync",
+      "schedule": "30 4 * * *"
     }
   ]
 }
