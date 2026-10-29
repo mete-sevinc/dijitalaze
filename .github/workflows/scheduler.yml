@@ -1,5 +1,6 @@
 name: scheduler
-# GitHub'ın */5 cron'u güvenilmez; bu iş dakikada bir uygulamayı tetikler (hatırlatma + zamanlı mail),
+# GitHub'ın */5 cron'u güvenilmez; bu iş 30 dakikada bir (yalnız 07-23 İstanbul) uygulamayı tetikler
+# (hatırlatma + zamanlı mail). Sık tetik Neon free'nin 100 CU-saat kotasını doldurur (2026-10 kesintisi);
 # süresi dolunca kendini yeniden başlatır. Saatlik schedule yalnızca zincir koparsa devreye girer.
 on:
   schedule:
@@ -14,13 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 358
     steps:
-      - name: Dakikada bir tetikle
+      - name: 30 dakikada bir tetikle
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           end=$(( $(date +%s) + 5*3600 + 50*60 ))
           fails=0
           while [ "$(date +%s)" -lt "$end" ]; do
+            hour=$(TZ=Europe/Istanbul date +%H)
+            if [ "$hour" -lt 7 ]; then sleep 1800; continue; fi
             if curl --fail --silent --show-error --max-time 50 \
                  -H "Authorization: Bearer $CRON_SECRET" \
                  https://dijital.aze.com.tr/api/cron/assistant > /dev/null; then
@@ -30,7 +33,7 @@ jobs:
               echo "tick failed ($fails) at $(date -u +%T)"
               if [ "$fails" -ge 10 ]; then echo "10 ardışık hata, zincir durduruluyor"; exit 1; fi
             fi
-            sleep 60
+            sleep 1800
           done
   continue:
     needs: tick
