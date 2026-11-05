@@ -2,8 +2,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { runAgent, ToolSpec } from '@/lib/ai/agent-loop'
 import { assignTaskToEmployee } from '@/lib/agents/work'
-import { sendDraftNow } from './emails'
-import { hasMailAccount } from './mail'
 import { pendingQuotes, ybaEndingIn } from '@/lib/suitecrm'
 import { searchCrm } from '@/lib/crm-sync'
 import { CRM_MODULES } from '@/lib/crm-index'
@@ -51,7 +49,6 @@ const draftEmailInput = z.object({
   body: z.string().trim().min(1).max(20000),
 })
 const updateEmailInput = draftEmailInput.partial().extend({ id: z.string().min(1) })
-const scheduleEmailInput = z.object({ id: z.string().min(1), send_at: isoDate })
 const emailIdInput = z.object({ id: z.string().min(1) })
 
 const str = (description?: string) => ({ type: 'string', ...(description ? { description } : {}) })
@@ -194,22 +191,6 @@ const tools: ToolSpec[] = [
     },
   },
   {
-    name: 'schedule_email',
-    description:
-      'Taslağı belirtilen zamanda göndermek üzere zamanlar. Yalnızca sahibi taslağı gördükten ve zamanı onayladıktan SONRA, taslağı oluşturduğun mesajdan sonraki bir mesajda çağır.',
-    inputSchema: {
-      type: 'object',
-      properties: { id: str(), send_at: str('ISO 8601, saat dilimi ofsetli (+03:00)') },
-      required: ['id', 'send_at'],
-    },
-  },
-  {
-    name: 'send_email',
-    description:
-      'Taslağı hemen gönderir (geri alınamaz). Yalnızca sahibi taslağı gördükten ve "gönder" dedikten SONRA, taslağı oluşturduğun mesajdan sonraki bir mesajda çağır.',
-    inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
-  },
-  {
     name: 'cancel_email',
     description: 'Gönderilmemiş taslağı ya da zamanlı maili iptal eder (siler).',
     inputSchema: { type: 'object', properties: { id: str() }, required: ['id'] },
@@ -223,7 +204,7 @@ const tools: ToolSpec[] = [
 
 const CLAIMS_DONE = /(gönderildi|zamanlandı|zamanlandi|oluşturuldu|kaydedildi|eklendi|iptal edildi|silindi|tamamlandı olarak)/i
 
-const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee', 'draft_email', 'update_email_draft', 'schedule_email', 'send_email', 'cancel_email'])
+const MUTATING_TOOLS = new Set(['add_task', 'complete_task', 'add_note', 'remember', 'forget', 'assign_task_to_employee', 'create_employee', 'draft_email', 'update_email_draft', 'cancel_email'])
 
 function istanbulNow(): string {
   const text = new Intl.DateTimeFormat('tr-TR', {
@@ -257,13 +238,13 @@ async function systemPrompt(owner: string): Promise<string> {
 Görevlerin: günlük işlerini takip etmek, hatırlatma kurmak, notlarını saklamak, planlarını özetlemek ve personele iş vermek.
 Şu an: ${istanbulNow()}. Göreli zamanları ("yarın 10'da", "2 saat sonra") bu saate göre hesapla ve araçlara +03:00 ofsetli ISO 8601 ver.
 Kayıt/silme/tamamlama/iş verme gibi işlemleri yalnızca araçlarla yap; araç çalışmadan "yaptım" deme.
-E-posta: Sahibi adına mail yazman istenirse önce draft_email ile taslak oluştur ve alıcı/konu/metni sahibine göster. Göndermeden ya da zamanlamadan önce sahibinin açık onayını bekle ("gönder", "yarın 09:00'da gönder" gibi); onay gelince aynı taslağı schedule_email veya send_email ile işle. Alıcı adresini tahmin etme, bilmiyorsan sor.
+E-posta: Sahibi adına mail yazman istenirse önce draft_email ile taslak oluştur ve alıcı/konu/metni sahibine göster. Mail göndermek veya zamanlamak sende YOK: sahibine taslağın E-postalar kutusundaki "Şimdi gönder" / "Zamanla" düğmeleriyle kendisinin göndereceğini söyle. Alıcı adresini tahmin etme, bilmiyorsan sor.
 Tarih/saat belirsizse tahmin etme, tek kısa soru sor.
 
 Öğrenme: Sahibinin kalıcı tercihlerini, rutinlerini, çevresindeki kişileri ve işiyle ilgili sabit bilgileri fark ettiğinde remember ile kaydet. Aşağıdaki hafızayı kullanarak kişiselleştir; yanlış/eskimiş kayıt görürsen forget ile sil.
 Personel: Sahibi bir personele iş vermek isterse önce list_employees ile doğru kişiyi bul, sonra assign_task_to_employee kullan. Personel işi arka planda yapar; sonuç Görevler sayfasında sahibinin onayına düşer, sen sonucu uydurma.
 
-Bekleyen e-postalar (schedule_email/send_email/update_email_draft/cancel_email için bu id'leri kullan; araç başarılı dönmeden "zamanladım/gönderdim" deme):
+Bekleyen e-postalar (update_email_draft/cancel_email için bu id'leri kullan; mail gönderemezsin, "gönderdim/zamanladım" deme):
 ${mailBlock}
 
 Hafıza:
@@ -433,29 +414,6 @@ async function runTool(owner: string, name: string, input: unknown, draftedThisT
       })
       draftedThisTurn.add(id)
       return { updated: r.count }
-    }
-    case 'schedule_email': {
-      const p = scheduleEmailInput.parse(input)
-      if (draftedThisTurn.has(p.id)) throw new Error('Taslak bu mesajda hazırlandı; önce sahibine göster ve onayını bekle.')
-      const at = new Date(p.send_at)
-      if (at.getTime() < Date.now() + 30_000) throw new Error('Gönderim zamanı gelecekte olmalı')
-      if (!(await hasMailAccount(owner))) throw new Error('Mail yetkisi yok: sahibi çıkış yapıp Microsoft ile yeniden giriş yapmalı')
-      const r = await prisma.assistantEmail.updateMany({
-        where: { id: p.id, ownerEmail: owner, status: { in: ['DRAFT', 'SCHEDULED'] } },
-        data: { status: 'SCHEDULED', scheduledAt: at, attempts: 0, error: null },
-      })
-      if (r.count === 0) throw new Error('Taslak bulunamadı')
-      return { scheduled: true, sendAt: at.toISOString() }
-    }
-    case 'send_email': {
-      const p = emailIdInput.parse(input)
-      if (draftedThisTurn.has(p.id)) throw new Error('Taslak bu mesajda hazırlandı; önce sahibine göster ve onayını bekle.')
-      if (!(await hasMailAccount(owner))) throw new Error('Mail yetkisi yok: sahibi çıkış yapıp Microsoft ile yeniden giriş yapmalı')
-      const owned = await prisma.assistantEmail.findFirst({ where: { id: p.id, ownerEmail: owner, status: 'DRAFT' } })
-      if (!owned) throw new Error('Gönderilebilir taslak bulunamadı')
-      const r = await sendDraftNow(p.id)
-      if (!r.ok) throw new Error(`Gönderilemedi: ${r.error}`)
-      return { sent: true }
     }
     case 'cancel_email': {
       const p = emailIdInput.parse(input)

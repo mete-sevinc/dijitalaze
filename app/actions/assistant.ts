@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { chatWithAssistant } from '@/lib/assistant/service'
 import { isAllowedPushEndpoint } from '@/lib/assistant/push'
 import { isOverRate } from '@/lib/ai/usage'
+import { sendDraftNow } from '@/lib/assistant/emails'
+import { hasMailAccount } from '@/lib/assistant/mail'
 
 async function owner(): Promise<string> {
   const session = await auth()
@@ -161,4 +163,26 @@ export async function cancelAssistantEmail(id: string) {
     where: { id, ownerEmail: email, status: { in: ['DRAFT', 'SCHEDULED', 'FAILED'] } },
   })
   return { success: r.count > 0 }
+}
+
+// Giden mail yalnızca sahibin arayüzdeki tıklamasıyla gönderilir/zamanlanır; model bu işleme sahip değil.
+export async function sendAssistantEmailNow(id: string) {
+  const email = await owner()
+  if (!(await hasMailAccount(email))) return { success: false as const, error: 'Mail yetkisi yok: çıkış yapıp Microsoft ile yeniden giriş yapın' }
+  const draft = await prisma.assistantEmail.findFirst({ where: { id, ownerEmail: email, status: 'DRAFT' } })
+  if (!draft) return { success: false as const, error: 'Gönderilebilir taslak bulunamadı' }
+  const r = await sendDraftNow(id)
+  return r.ok ? { success: true as const } : { success: false as const, error: `Gönderilemedi: ${r.error}` }
+}
+
+export async function scheduleAssistantEmail(id: string, sendAtIso: string) {
+  const email = await owner()
+  const at = new Date(sendAtIso)
+  if (Number.isNaN(at.getTime()) || at.getTime() < Date.now() + 30_000) return { success: false as const, error: 'Gönderim zamanı gelecekte olmalı' }
+  if (!(await hasMailAccount(email))) return { success: false as const, error: 'Mail yetkisi yok: çıkış yapıp Microsoft ile yeniden giriş yapın' }
+  const r = await prisma.assistantEmail.updateMany({
+    where: { id, ownerEmail: email, status: { in: ['DRAFT', 'SCHEDULED'] } },
+    data: { status: 'SCHEDULED', scheduledAt: at, attempts: 0, error: null },
+  })
+  return r.count > 0 ? { success: true as const } : { success: false as const, error: 'Taslak bulunamadı' }
 }

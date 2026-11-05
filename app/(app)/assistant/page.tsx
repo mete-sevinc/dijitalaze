@@ -7,6 +7,8 @@ import {
   deleteAssistantMemory,
   deleteAssistantNote,
   getAssistantState,
+  scheduleAssistantEmail,
+  sendAssistantEmailNow,
   sendAssistantMessage,
   updateAssistantNote,
 } from '@/app/actions/assistant'
@@ -130,6 +132,31 @@ export default function AssistantPage() {
     if (res.success) setEmails((m) => m.filter((x) => x.id !== id))
   }
 
+  const [mailMsg, setMailMsg] = useState<string | null>(null)
+  const [schedAt, setSchedAt] = useState<Record<string, string>>({})
+
+  async function refreshMails() {
+    const s = await getAssistantState()
+    setEmails(s.emails)
+  }
+
+  async function sendMailNow(m: Mail) {
+    if (!window.confirm(`Gönderilsin mi?\n\nKime: ${m.to}\nKonu: ${m.subject}\n\nBu işlem geri alınamaz.`)) return
+    setMailMsg(null)
+    const res = await sendAssistantEmailNow(m.id)
+    if (!res.success) setMailMsg(res.error)
+    await refreshMails()
+  }
+
+  async function scheduleMail(m: Mail) {
+    const v = schedAt[m.id]
+    if (!v) return setMailMsg('Önce gönderim zamanını seçin')
+    setMailMsg(null)
+    const res = await scheduleAssistantEmail(m.id, `${v}:00+03:00`)
+    if (!res.success) setMailMsg(res.error)
+    await refreshMails()
+  }
+
   async function done(id: string) {
     await completeAssistantTask(id)
     setTasks((t) => t.filter((x) => x.id !== id))
@@ -217,6 +244,7 @@ export default function AssistantPage() {
               Mail gönderme yetkisi yok. Çıkış yapıp Microsoft ile yeniden giriş yapın.
             </p>
           )}
+          {mailMsg && <p className="text-xs text-red-600 mb-2" role="alert">{mailMsg}</p>}
           {emails.length === 0 ? (
             <p className="text-sm text-slate-500">Taslak veya zamanlı mail yok.</p>
           ) : (
@@ -229,6 +257,24 @@ export default function AssistantPage() {
                     {m.status === 'SCHEDULED' && m.scheduledAt && ` ${dt.format(new Date(m.scheduledAt))}`}
                   </p>
                   {m.error && <p className="text-xs text-red-600">{m.error}</p>}
+                  {m.status === 'DRAFT' && mailConnected && (
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <button onClick={() => sendMailNow(m)} className="text-xs rounded bg-slate-900 text-white px-2 py-1" aria-label={`Şimdi gönder: ${m.subject}`}>
+                        Şimdi gönder
+                      </button>
+                      <label htmlFor={`sched-${m.id}`} className="sr-only">Gönderim zamanı (İstanbul)</label>
+                      <input
+                        id={`sched-${m.id}`}
+                        type="datetime-local"
+                        value={schedAt[m.id] ?? ''}
+                        onChange={(e) => setSchedAt((x) => ({ ...x, [m.id]: e.target.value }))}
+                        className="text-xs border border-slate-300 rounded px-1 py-0.5"
+                      />
+                      <button onClick={() => scheduleMail(m)} className="text-xs rounded border border-slate-400 px-2 py-1" aria-label={`Zamanla: ${m.subject}`}>
+                        Zamanla
+                      </button>
+                    </div>
+                  )}
                   {['DRAFT', 'SCHEDULED', 'FAILED'].includes(m.status) && (
                     <button onClick={() => cancelMail(m.id)} className="text-xs underline text-red-600" aria-label={`İptal et: ${m.subject}`}>
                       İptal et
