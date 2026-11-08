@@ -140,23 +140,29 @@ export async function crmQuotesForYear(year: number) {
 
   const rows: { stage: string; total: number; currency: string; group: string; lostCauses: string[] }[] = []
   const PAGE = 200
+  const MAX_ROWS = 10_000
+  const deadline = Date.now() + 45_000
   for (let offset = 0, i = 0; i < 50; i++) {
+    if (Date.now() > deadline) throw new Error('CRM sorgusu zaman aşımına uğradı')
     const out = await call<{ entry_list?: Entry[]; next_offset?: number }>(endpoint, 'get_entry_list', [
       session, 'AOS_Quotes', query, 'date_entered ASC, id ASC', offset, fields, [], PAGE, 0, false,
     ])
     const list = out.entry_list ?? []
     for (const e of list) {
       const v = (k: string) => String(e.name_value_list[k]?.value ?? '')
+      const total = Number(v('total_amt'))
       rows.push({
-        stage: v('stage'),
-        total: Number(v('total_amt')) || 0,
-        currency: currencies.get(v('currency_id')) ?? (v('currency_id') || 'Varsayılan (-99)'),
-        group: v('product_of_interest_c'),
-        lostCauses: v('cause_of_lost_c').split(',').map((c) => c.replace(/\^/g, '').trim()).filter(Boolean),
+        stage: clean(v('stage')).slice(0, 40),
+        total: Number.isFinite(total) ? total : 0,
+        currency: clean(currencies.get(v('currency_id')) ?? (v('currency_id') || 'Varsayılan (-99)')).slice(0, 20),
+        group: clean(v('product_of_interest_c')).slice(0, 40),
+        lostCauses: v('cause_of_lost_c').split(',').map((c) => clean(c.replace(/\^/g, '')).slice(0, 60)).filter(Boolean).slice(0, 10),
       })
     }
-    if (list.length < PAGE) break
-    offset = out.next_offset ?? offset + PAGE
+    if (list.length < PAGE || rows.length >= MAX_ROWS) break
+    const next = out.next_offset ?? offset + PAGE
+    if (next <= offset) break
+    offset = next
   }
   return rows
 }

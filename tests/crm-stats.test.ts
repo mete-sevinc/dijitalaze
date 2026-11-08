@@ -21,3 +21,12 @@ describe('aggregateQuotes', () => {
     expect(aggregateQuotes(rows, ['pas', 'ypa']).map((g) => g.grup)).toEqual(['PAS', 'YPA'])
   })
 })
+
+describe('aggregateQuotes untrusted keys', () => {
+  it('does not pollute prototypes and survives __proto__ keys', () => {
+    const r = aggregateQuotes([{ group: '__proto__', stage: 'constructor', total: 1, currency: '__proto__', lostCauses: [] }])
+    expect(r).toHaveLength(1)
+    expect(({} as Record<string, unknown>).adet).toBeUndefined()
+    expect(Object.keys(r[0].aşamalar)).toEqual(['(geçersiz)'])
+  })
+})
