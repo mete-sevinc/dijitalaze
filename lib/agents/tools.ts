@@ -130,6 +130,19 @@ export const agentTools: AITool[] = [
     },
   },
   {
+    name: 'crm_quote_stats',
+    description:
+      'CRM teklif istatistiği: verilen yıl için teklif grubuna (PAS, CMM, YPA gibi teklif adının ön eki) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Draft, Negotiation, Delivered, On Hold, Closed Dead) göre ADET ve TOPLAM TUTAR verir. Sayıları ve tutarları yalnızca bu araçtan al, kendin tahmin etme veya uydurma. Yıl, teklifin geçerlilik yılıdır. Tutarlar para birimi ayrımı yapılmadan toplanır.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        year: { type: 'number', description: 'Yıl, örn. 2026' },
+        groups: { type: 'array', items: { type: 'string' }, description: 'Teklif grupları, örn. ["PAS","CMM","YPA"]. Boşsa tüm gruplar.' },
+      },
+      required: ['year'],
+    },
+  },
+  {
     name: 'get_company_summary',
     description: 'Get a summary of current company status and metrics',
     inputSchema: {

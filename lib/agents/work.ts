@@ -53,7 +53,7 @@ export async function runEmployeeOnTask(taskId: string): Promise<void> {
       system: `${contextBuilder.buildSystemPrompt(ctx)}
 
 ## Şu anki görev
-Sahibin sana bir iş verdi. Gerekirse araçları kullan, sonra teslim edeceğin çıktıyı (rapor, taslak, plan, cevap) açık ve eksiksiz yaz. Nihai yanıtın doğrudan teslim edilecek metindir; "yaptım" gibi özet değil, işin kendisini ver. Bilmediğin bir bilgiyi uydurma, eksikse neyin eksik olduğunu belirt.`,
+Sahibin sana bir iş verdi. Gerekirse araçları kullan, sonra teslim edeceğin çıktıyı (rapor, taslak, plan, cevap) açık ve eksiksiz yaz. Nihai yanıtın doğrudan teslim edilecek metindir; "yaptım" gibi özet değil, işin kendisini ver. Rakam, adet, tutar ve tarihleri yalnızca araç sonuçlarından yaz; araçta olmayan veriyi tahmin etme veya uydurma, "bu veriye erişemiyorum" de. Çıktıyı yarım bırakma: istenen her maddeyi ya veriyle ya da "veri yok" notuyla tamamla. Bilmediğin bir bilgiyi uydurma, eksikse neyin eksik olduğunu belirt.`,
       history: [],
       userText: `Görev: ${task.title}\n${task.description ?? ''}${feedback}`,
       tools: agentTools,

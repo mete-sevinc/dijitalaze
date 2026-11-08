@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+import { quoteStats } from '@/lib/crm-stats'
 import { AgentContext, ToolResult } from '@/lib/types'
 import {
   listTasksInputSchema,
@@ -62,6 +64,8 @@ async function dispatchTool(
         return await createMeetingAction(context, input)
       case 'delegate_task':
         return await delegateTask(context, input)
+      case 'crm_quote_stats':
+        return await crmQuoteStats(input)
       default:
         return {
           toolName,
@@ -423,4 +427,17 @@ async function delegateTask(context: AgentContext, input: Record<string, unknown
     }),
   ])
   return { toolName: 'delegate_task', result: { taskId: task.id, assignee: to.name, status: 'TODO' } }
+}
+
+async function crmQuoteStats(input: Record<string, unknown>): Promise<ToolResult> {
+  const p = z.object({ year: z.number().int().min(2000).max(2100), groups: z.array(z.string().max(20)).max(10).optional() }).parse(input)
+  const rows = await quoteStats(p.year, p.groups)
+  return {
+    toolName: 'crm_quote_stats',
+    result: {
+      yıl: p.year,
+      satırlar: rows,
+      not: 'Rakamlar CRM indeksinden hesaplandı. Bu tabloda olmayan bir rakamı yazma. Kayıt yoksa "veri yok" de.',
+    },
+  }
 }
