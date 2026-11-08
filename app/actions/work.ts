@@ -80,6 +80,24 @@ export async function resolveApproval(approvalId: string, approve: boolean, note
   }
 }
 
+export async function deleteTask(taskId: string) {
+  await requireAuth()
+  const parsed = idSchema.safeParse(taskId)
+  if (!parsed.success) return { success: false as const, error: 'Geçersiz bilgi' }
+  try {
+    const companyId = await getCompanyId()
+    await assertTaskInCompany(parsed.data)
+    await prisma.$transaction([
+      prisma.auditLog.deleteMany({ where: { companyId, entityType: 'Task', entityId: parsed.data } }),
+      prisma.task.delete({ where: { id: parsed.data } }),
+    ])
+    return { success: true as const }
+  } catch (e) {
+    logActionError('deleteTask', e)
+    return { success: false as const, error: userMessage(e, 'Görev silinemedi') }
+  }
+}
+
 export async function retryTask(taskId: string) {
   await requireAuth()
   const parsed = idSchema.safeParse(taskId)

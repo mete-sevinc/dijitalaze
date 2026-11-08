@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getTasks } from '@/app/actions/tasks'
 import { getEmployees } from '@/app/actions/employees'
-import { assignTask, getPendingApprovals, resolveApproval, retryTask, reviewTask } from '@/app/actions/work'
+import { assignTask, deleteTask, getPendingApprovals, resolveApproval, retryTask, reviewTask } from '@/app/actions/work'
 
 interface Task {
   id: string
@@ -211,6 +211,7 @@ export default function TasksPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold">Atanan</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Durum</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Öncelik</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold"><span className="sr-only">İşlem</span></th>
               </tr>
             </thead>
             <tbody>
@@ -222,6 +223,19 @@ export default function TasksPage() {
                     <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">{STATUS_LABELS[task.status] ?? task.status}</span>
                   </td>
                   <td className="px-6 py-4">{task.priority}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      disabled={busy === task.id}
+                      aria-label={`Sil: ${task.title}`}
+                      onClick={() => {
+                        if (!window.confirm(`"${task.title}" kalıcı olarak silinecek. Geri alınamaz. Emin misiniz?`)) return
+                        run(task.id, () => deleteTask(task.id))
+                      }}
+                      className="px-3 py-1.5 border border-red-300 text-red-700 rounded text-sm disabled:opacity-50"
+                    >
+                      Sil
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
