@@ -129,7 +129,7 @@ export async function crmQuotesForYear(year: number) {
   const cur = await call<{ entry_list?: Entry[] }>(endpoint, 'get_entry_list', [
     session, 'Currencies', '', '', 0, ['id', 'iso4217'], [], 50, 0, false,
   ])
-  const currencies = new Map<string, string>([['-99', 'Varsayılan (-99)']])
+  const currencies = new Map<string, string>([['-99', 'EUR']]) // CRM varsayılan para birimi (Yönetim > Yerelleştirme): Euro
   for (const e of cur.entry_list ?? []) currencies.set(e.id, e.name_value_list.iso4217?.value || e.id)
 
   // CRM tarihleri UTC; İstanbul yılı UTC+3 ile kayar.
@@ -154,7 +154,7 @@ export async function crmQuotesForYear(year: number) {
       rows.push({
         stage: clean(v('stage')).slice(0, 40),
         total: Number.isFinite(total) ? total : 0,
-        currency: clean(currencies.get(v('currency_id')) ?? (v('currency_id') || 'Varsayılan (-99)')).slice(0, 20),
+        currency: clean(currencies.get(v('currency_id')) ?? (v('currency_id') || 'EUR')).slice(0, 20),
         group: clean(v('product_of_interest_c')).slice(0, 40),
         lostCauses: v('cause_of_lost_c').split(',').map((c) => clean(c.replace(/\^/g, '')).slice(0, 60)).filter(Boolean).slice(0, 10),
       })

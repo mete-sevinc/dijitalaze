@@ -132,7 +132,7 @@ export const agentTools: AITool[] = [
   {
     name: 'crm_quote_stats',
     description:
-      'CRM teklif istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TOPLAM TUTAR ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, kendin tahmin etme veya uydurma. Farklı para birimlerini (TRY, GBP, USD, \'Varsayılan (-99)\') birbiriyle toplama; hangisinin TL olduğunu bilmiyorsan söyleme.',
+      'CRM teklif istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TOPLAM TUTAR ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, kendin tahmin etme veya uydurma. Para birimleri EUR, TRY, GBP, USD olabilir; farklı para birimlerini birbiriyle toplama, kur çevirme.',
     inputSchema: {
       type: 'object',
       properties: {
