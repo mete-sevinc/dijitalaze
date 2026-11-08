@@ -1,36 +1,41 @@
-import { Prisma } from '@prisma/client'
-import { prisma } from '@/lib/db'
+import { crmQuotesForYear } from '@/lib/suitecrm'
 
-// Teklif (AOS_Quotes) istatistiği: sayım ve toplamı model değil veritabanı hesaplar.
-// Grup = teklif adının başındaki harf öbeği (PAS_Bakim → PAS). Yıl = teklifin geçerlilik (expiration) yılı,
-// yoksa CRM'deki son değişiklik yılı (oluşturma tarihi indekste tutulmuyor).
-export interface QuoteStatRow {
-  group: string
+// Teklif istatistiği: sayım ve toplamı model değil kod hesaplar. Veri canlı CRM'den (salt okunur) gelir.
+// Grup = CRM "product_of_interest_c" alanı (1.PAS, 2.CMM, 3.YPA, 4.Genel). Yıl = teklifin oluşturulma yılı (İstanbul saati).
+export interface QuoteRow {
   stage: string
-  count: number
   total: number
+  currency: string
+  group: string
+  lostCauses: string[]
 }
 
-export async function quoteStats(year: number, groups?: string[]): Promise<QuoteStatRow[]> {
-  const wanted = (groups ?? []).map((g) => g.trim().toUpperCase()).filter(Boolean)
-  const groupFilter = wanted.length ? Prisma.sql`AND g."grp" IN (${Prisma.join(wanted)})` : Prisma.empty
-  const rows = await prisma.$queryRaw<{ grp: string; stage: string; cnt: bigint; total: number | null }[]>`
-    WITH q AS (
-      SELECT
-        upper(coalesce(substring("title" from '^[A-Za-zÇĞİÖŞÜçğıöşü]+'), '?')) AS grp,
-        coalesce(substring("content" from '(?m)^stage: (.*)$'), '(aşama yok)') AS stage,
-        coalesce(nullif(substring("content" from '(?m)^total_amt: ([0-9.]+)'), '')::numeric, 0) AS total,
-        coalesce(
-          substring("content" from '(?m)^expiration: ([0-9]{4})')::int,
-          extract(year from "crmModifiedAt")::int
-        ) AS yr
-      FROM "CrmRecord"
-      WHERE "module" = 'AOS_Quotes'
-    )
-    SELECT g."grp", g."stage", count(*) AS cnt, sum(g."total")::float8 AS total
-    FROM q g
-    WHERE g."yr" = ${year} ${groupFilter}
-    GROUP BY g."grp", g."stage"
-    ORDER BY g."grp", cnt DESC`
-  return rows.map((r) => ({ group: r.grp, stage: r.stage, count: Number(r.cnt), total: Math.round((r.total ?? 0) * 100) / 100 }))
+export interface GroupStats {
+  grup: string
+  toplam: number
+  aşamalar: Record<string, { adet: number; tutar: Record<string, number> }>
+  kaybetmeSebepleri: Record<string, number>
+}
+
+const groupName = (v: string) => v.replace(/^\d+\.\s*/, '').trim() || '(grup yok)'
+
+export function aggregateQuotes(rows: QuoteRow[], groups?: string[]): GroupStats[] {
+  const wanted = new Set((groups ?? []).map((g) => g.trim().toUpperCase()).filter(Boolean))
+  const out = new Map<string, GroupStats>()
+  for (const r of rows) {
+    const g = groupName(r.group)
+    if (wanted.size && !wanted.has(g.toUpperCase())) continue
+    const s = out.get(g) ?? { grup: g, toplam: 0, aşamalar: {}, kaybetmeSebepleri: {} }
+    out.set(g, s)
+    s.toplam++
+    const st = (s.aşamalar[r.stage || '(aşama yok)'] ??= { adet: 0, tutar: {} })
+    st.adet++
+    st.tutar[r.currency] = Math.round(((st.tutar[r.currency] ?? 0) + r.total) * 100) / 100
+    if (r.stage === 'Closed Lost') for (const c of r.lostCauses) s.kaybetmeSebepleri[c] = (s.kaybetmeSebepleri[c] ?? 0) + 1
+  }
+  return [...out.values()].sort((a, b) => a.grup.localeCompare(b.grup))
+}
+
+export async function quoteStats(year: number, groups?: string[]): Promise<GroupStats[]> {
+  return aggregateQuotes(await crmQuotesForYear(year), groups)
 }

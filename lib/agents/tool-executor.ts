@@ -436,8 +436,8 @@ async function crmQuoteStats(input: Record<string, unknown>): Promise<ToolResult
     toolName: 'crm_quote_stats',
     result: {
       yıl: p.year,
-      satırlar: rows,
-      not: 'Rakamlar CRM indeksinden hesaplandı. Bu tabloda olmayan bir rakamı yazma. Kayıt yoksa "veri yok" de.',
+      gruplar: rows,
+      not: 'Rakamlar canlı CRM\'den hesaplandı (yıl = teklif oluşturulma yılı). Bu tabloda olmayan bir rakamı yazma. Kayıt yoksa "veri yok" de.',
     },
   }
 }

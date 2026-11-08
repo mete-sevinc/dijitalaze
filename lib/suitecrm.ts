@@ -114,3 +114,49 @@ export async function ybaEndingIn(month?: string) {
     durum: STATUS_TR[r.status] ?? clean(r.status), değer: clean(r.total_contract_value), sorumlu: clean(r.assigned_user_name),
   }))
 }
+
+// Teklif istatistiği için: verilen yılın (İstanbul saati) tüm teklifleri, yalnız gereken alanlarla. Sorguya yalnız tamsayı yıl girer.
+export async function crmQuotesForYear(year: number) {
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('Geçersiz yıl')
+  const { endpoint, user, password } = config()
+  const login = await call<{ id?: string }>(endpoint, 'login', {
+    user_auth: { user_name: user, password: createHash('md5').update(password).digest('hex') },
+    application_name: 'dijitalaze',
+  })
+  if (!login.id) throw new Error('SuiteCRM girişi başarısız (kullanıcı adı/şifre)')
+  const session = login.id
+
+  const cur = await call<{ entry_list?: Entry[] }>(endpoint, 'get_entry_list', [
+    session, 'Currencies', '', '', 0, ['id', 'iso4217'], [], 50, 0, false,
+  ])
+  const currencies = new Map<string, string>([['-99', 'Varsayılan (-99)']])
+  for (const e of cur.entry_list ?? []) currencies.set(e.id, e.name_value_list.iso4217?.value || e.id)
+
+  // CRM tarihleri UTC; İstanbul yılı UTC+3 ile kayar.
+  const from = new Date(Date.UTC(year, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
+  const to = new Date(Date.UTC(year + 1, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
+  const query = `aos_quotes.date_entered >= '${from}' AND aos_quotes.date_entered < '${to}'`
+  const fields = ['stage', 'total_amt', 'currency_id', 'product_of_interest_c', 'cause_of_lost_c']
+
+  const rows: { stage: string; total: number; currency: string; group: string; lostCauses: string[] }[] = []
+  const PAGE = 200
+  for (let offset = 0, i = 0; i < 50; i++) {
+    const out = await call<{ entry_list?: Entry[]; next_offset?: number }>(endpoint, 'get_entry_list', [
+      session, 'AOS_Quotes', query, 'date_entered ASC, id ASC', offset, fields, [], PAGE, 0, false,
+    ])
+    const list = out.entry_list ?? []
+    for (const e of list) {
+      const v = (k: string) => String(e.name_value_list[k]?.value ?? '')
+      rows.push({
+        stage: v('stage'),
+        total: Number(v('total_amt')) || 0,
+        currency: currencies.get(v('currency_id')) ?? (v('currency_id') || 'Varsayılan (-99)'),
+        group: v('product_of_interest_c'),
+        lostCauses: v('cause_of_lost_c').split(',').map((c) => c.replace(/\^/g, '').trim()).filter(Boolean),
+      })
+    }
+    if (list.length < PAGE) break
+    offset = out.next_offset ?? offset + PAGE
+  }
+  return rows
+}
