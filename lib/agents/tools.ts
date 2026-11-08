@@ -132,14 +132,43 @@ export const agentTools: AITool[] = [
   {
     name: 'crm_quote_stats',
     description:
-      'CRM teklif istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TOPLAM TUTAR ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, kendin tahmin etme veya uydurma. Para birimleri EUR, TRY, GBP, USD olabilir; farklı para birimlerini birbiriyle toplama, kur çevirme.',
+      'CRM TEKLİF istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TUTAR (kdvHariç ve kdvDahil) ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, uydurma. Para birimleri EUR, TRY, GBP, USD olabilir; farklı para birimlerini birbiriyle toplama, kur çevirme.',
     inputSchema: {
       type: 'object',
       properties: {
         year: { type: 'number', description: 'Yıl, örn. 2026' },
-        groups: { type: 'array', items: { type: 'string' }, description: 'Teklif grupları, örn. ["PAS","CMM","YPA"]. Boşsa tüm gruplar.' },
+        groups: { type: 'array', items: { type: 'string' }, description: 'Gruplar, örn. ["PAS","CMM","YPA"]. Boşsa tüm gruplar.' },
       },
       required: ['year'],
+    },
+  },
+  {
+    name: 'crm_invoice_stats',
+    description:
+      'CRM FATURA istatistiği: verilen yıl (fatura tarihi yılı) için gruba (PAS, CMM, YPA, Genel) ve duruma (Paid=ödendi, Unpaid=ödenmedi) göre ADET ve para birimi bazında TUTAR (kdvHariç ve kdvDahil) verir. Rakamları yalnızca bu araçtan al, uydurma. Farklı para birimlerini birbiriyle toplama, kur çevirme.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        year: { type: 'number', description: 'Yıl, örn. 2026' },
+        groups: { type: 'array', items: { type: 'string' }, description: 'Gruplar, örn. ["PAS","YPA"]. Boşsa tüm gruplar.' },
+      },
+      required: ['year'],
+    },
+  },
+  {
+    name: 'crm_list_documents',
+    description:
+      'CRM teklif veya faturalarını tek tek listeler (no, firma, durum, tutar kdvHariç/kdvDahil, para birimi, tarih, vade; en yeni önce). Belirli bir firmanın belgeleri, ödenmemiş faturalar (status=Unpaid) veya belirli aşamadaki teklifler için kullan. Toplam adet/tutar sorularında istatistik araçlarını kullan.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['quotes', 'invoices'], description: 'quotes=teklifler, invoices=faturalar' },
+        year: { type: 'number', description: 'Yıl, örn. 2026' },
+        status: { type: 'string', description: 'Teklifte aşama (Closed Accepted, Closed Lost, Negotiation, Draft), faturada durum (Paid, Unpaid). İsteğe bağlı.' },
+        account: { type: 'string', description: 'Firma adında geçen metin. İsteğe bağlı.' },
+        limit: { type: 'number', description: 'En çok kaç kayıt (varsayılan 20, en çok 50)' },
+      },
+      required: ['type', 'year'],
     },
   },
   {

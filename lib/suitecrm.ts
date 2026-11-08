@@ -115,8 +115,25 @@ export async function ybaEndingIn(month?: string) {
   }))
 }
 
-// Teklif istatistiği için: verilen yılın (İstanbul saati) tüm teklifleri, yalnız gereken alanlarla. Sorguya yalnız tamsayı yıl girer.
-export async function crmQuotesForYear(year: number) {
+// Teklif/fatura okuma (istatistik ve listeleme): verilen yılın tüm kayıtları, yalnız gereken alanlarla. Sorguya yalnız tamsayı yıl girer.
+// Teklif yılı = oluşturulma tarihi (İstanbul saati), fatura yılı = fatura tarihi.
+// subtotal = KDV hariç, indirim sonrası; total = KDV dahil genel toplam (CRM total_amt indirim öncesi satır toplamıdır, kullanılmaz).
+export type DocKind = 'quotes' | 'invoices'
+export interface CrmDoc {
+  number: string
+  name: string
+  account: string
+  status: string
+  subtotal: number
+  total: number
+  currency: string
+  group: string
+  lostCauses: string[]
+  date: string
+  dueDate: string
+}
+
+export async function crmDocumentsForYear(kind: DocKind, year: number): Promise<CrmDoc[]> {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('Geçersiz yıl')
   const { endpoint, user, password } = config()
   const login = await call<{ id?: string }>(endpoint, 'login', {
@@ -132,31 +149,47 @@ export async function crmQuotesForYear(year: number) {
   const currencies = new Map<string, string>([['-99', 'EUR']]) // CRM varsayılan para birimi (Yönetim > Yerelleştirme): Euro
   for (const e of cur.entry_list ?? []) currencies.set(e.id, e.name_value_list.iso4217?.value || e.id)
 
-  // CRM tarihleri UTC; İstanbul yılı UTC+3 ile kayar.
-  const from = new Date(Date.UTC(year, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
-  const to = new Date(Date.UTC(year + 1, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
-  const query = `aos_quotes.date_entered >= '${from}' AND aos_quotes.date_entered < '${to}'`
-  const fields = ['stage', 'total_amt', 'currency_id', 'product_of_interest_c', 'cause_of_lost_c']
+  const quotes = kind === 'quotes'
+  const crmModule = quotes ? 'AOS_Quotes' : 'AOS_Invoices'
+  const table = quotes ? 'aos_quotes' : 'aos_invoices'
+  let query: string
+  if (quotes) {
+    // CRM tarihleri UTC; İstanbul yılı UTC+3 ile kayar.
+    const from = new Date(Date.UTC(year, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
+    const to = new Date(Date.UTC(year + 1, 0, 1) - 3 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
+    query = `${table}.date_entered >= '${from}' AND ${table}.date_entered < '${to}'`
+  } else {
+    query = `${table}.invoice_date >= '${year}-01-01' AND ${table}.invoice_date < '${year + 1}-01-01'`
+  }
+  const fields = quotes
+    ? ['number', 'name', 'billing_account', 'stage', 'subtotal_amount', 'total_amount', 'currency_id', 'product_of_interest_c', 'cause_of_lost_c', 'date_entered', 'expiration']
+    : ['number', 'name', 'billing_account', 'status', 'subtotal_amount', 'total_amount', 'currency_id', 'product_of_interest_c', 'invoice_date', 'due_date']
 
-  const rows: { stage: string; total: number; currency: string; group: string; lostCauses: string[] }[] = []
+  const rows: CrmDoc[] = []
   const PAGE = 200
   const MAX_ROWS = 10_000
   const deadline = Date.now() + 45_000
+  const num = (x: string) => (Number.isFinite(Number(x)) ? Number(x) : 0)
   for (let offset = 0, i = 0; i < 50; i++) {
     if (Date.now() > deadline) throw new Error('CRM sorgusu zaman aşımına uğradı')
     const out = await call<{ entry_list?: Entry[]; next_offset?: number }>(endpoint, 'get_entry_list', [
-      session, 'AOS_Quotes', query, 'date_entered ASC, id ASC', offset, fields, [], PAGE, 0, false,
+      session, crmModule, query, `${quotes ? 'date_entered' : 'invoice_date'} ASC, id ASC`, offset, fields, [], PAGE, 0, false,
     ])
     const list = out.entry_list ?? []
     for (const e of list) {
       const v = (k: string) => String(e.name_value_list[k]?.value ?? '')
-      const total = Number(v('total_amt'))
       rows.push({
-        stage: clean(v('stage')).slice(0, 40),
-        total: Number.isFinite(total) ? total : 0,
+        number: clean(v('number')).slice(0, 20),
+        name: clean(v('name')).slice(0, 120),
+        account: clean(v('billing_account')).slice(0, 120),
+        status: clean(v(quotes ? 'stage' : 'status')).slice(0, 40),
+        subtotal: num(v('subtotal_amount')),
+        total: num(v('total_amount')),
         currency: clean(currencies.get(v('currency_id')) ?? (v('currency_id') || 'EUR')).slice(0, 20),
         group: clean(v('product_of_interest_c')).slice(0, 40),
         lostCauses: v('cause_of_lost_c').split(',').map((c) => clean(c.replace(/\^/g, '')).slice(0, 60)).filter(Boolean).slice(0, 10),
+        date: clean(v(quotes ? 'date_entered' : 'invoice_date')).slice(0, 10),
+        dueDate: clean(v(quotes ? 'expiration' : 'due_date')).slice(0, 10),
       })
     }
     if (list.length < PAGE || rows.length >= MAX_ROWS) break
