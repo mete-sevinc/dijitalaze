@@ -60,13 +60,20 @@ async function callGemini(apiKey: string, body: Record<string, unknown>): Promis
       const payload = thinkingOff ? { ...body, generationConfig: { ...gen, thinkingConfig: { thinkingBudget: 0 } } } : body
       const t0 = Date.now()
       let res: Response
-      try {
-        res = await fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
+      const send = () =>
+        fetch(`${GEMINI_URL}/models/${model}:generateContent`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         })
+      try {
+        res = await send()
+        // Dakikalık kota (429) kısa bekleyince açılır; yavaş modellere düşmeden önce aynı modeli bir kez yeniden dene.
+        if (res.status === 429) {
+          await new Promise((r) => setTimeout(r, 4000))
+          res = await send()
+        }
       } catch {
         console.warn(`gemini ${model} timeout ${Date.now() - t0}ms`)
         last = `Gemini zaman aşımı (${model})`
@@ -98,11 +105,13 @@ async function geminiTurn(o: AgentRunOptions): Promise<string> {
   contents.push({ role: 'user', parts: [{ text: o.userText }] })
 
   let reply = ''
-  for (let round = 0; round < (o.maxRounds ?? 6); round++) {
+  const maxRounds = o.maxRounds ?? 6
+  for (let round = 0; round < maxRounds; round++) {
     const { res, model } = await callGemini(apiKey, {
       systemInstruction: { parts: [{ text: o.system }] },
       contents,
-      tools: declarations.length ? [{ functionDeclarations: declarations }] : undefined,
+      // Son turda araç verilmez: model tur sınırı dolmadan yanıtı yazmak zorunda kalır (boş çıktı olmasın).
+      tools: declarations.length && round < maxRounds - 1 ? [{ functionDeclarations: declarations }] : undefined,
       generationConfig: { maxOutputTokens: 1500 },
     })
     const data = await res.json()
@@ -162,7 +171,7 @@ async function githubModelsTurn(token: string, o: AgentRunOptions): Promise<stri
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': '2022-11-28',
       },
-      body: JSON.stringify({ model, messages, tools: tools.length ? tools : undefined, max_tokens: 1500 }),
+      body: JSON.stringify({ model, messages, tools: tools.length && round < (o.maxRounds ?? 6) - 1 ? tools : undefined, max_tokens: 1500 }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`GitHub Models ${res.status}: ${(await res.text()).slice(0, 300)}`)
