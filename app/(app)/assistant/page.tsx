@@ -163,8 +163,9 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="p-8 grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-1 gap-6 h-full">
-      <section className="lg:col-span-2 flex flex-col bg-white border border-slate-200 rounded h-[70vh] lg:h-full min-h-0">
+    <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="lg:col-span-2 relative bg-white border border-slate-200 rounded h-[70vh] lg:h-auto lg:min-h-[32rem]">
+      <div className="flex flex-col h-full min-h-0 lg:absolute lg:inset-0">
         <h1 className="px-6 py-4 border-b border-slate-200 text-2xl font-bold text-slate-900">Kişisel Asistan</h1>
         <div className="flex-1 min-h-0 overflow-auto p-6 space-y-3">
           {messages.length === 0 && !sending && (
@@ -212,9 +213,10 @@ export default function AssistantPage() {
             Gönder
           </button>
         </form>
+      </div>
       </section>
 
-      <aside className="space-y-6 lg:overflow-auto lg:min-h-0">
+      <aside className="space-y-6">
         <section className="bg-white border border-slate-200 rounded p-4">
           <h2 className="font-semibold text-slate-900 mb-3">Açık işler</h2>
           {tasks.length === 0 ? (
