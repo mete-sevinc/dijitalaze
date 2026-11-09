@@ -51,21 +51,29 @@ export default function ChatPage() {
       if (empResult.success && empResult.data) setEmployee(empResult.data as Employee)
       if (convResult.success && convResult.data) setConversations(convResult.data as Conversation[])
       setLoading(false)
+      let draft: string | null = null
+      try {
+        draft = sessionStorage.getItem(`employee_chat_draft_${id}`)
+        sessionStorage.removeItem(`employee_chat_draft_${id}`)
+      } catch {}
+      if (draft && empResult.success) handleSend(draft)
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleSend() {
-    if (!input.trim() || sending) return
+  async function handleSend(override?: string) {
+    const text = (override ?? input).trim()
+    if (!text || sending) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'USER',
-      content: input.trim(),
+      content: text,
       createdAt: new Date(),
     }
 
@@ -267,7 +275,7 @@ export default function ChatPage() {
               style={{ minHeight: '46px' }}
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || sending}
               className="px-5 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
             >

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getDashboardSummary, generateDailyBriefing } from '@/app/actions/dashboard'
+import { getEmployees } from '@/app/actions/employees'
 
 interface DashboardData {
   company: Record<string, unknown> | null
@@ -19,6 +20,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [generatingBriefing, setGeneratingBriefing] = useState(false)
   const [assistantInput, setAssistantInput] = useState('')
+  const [staff, setStaff] = useState<{ id: string; name: string; title: string }[]>([])
+  const [chatTo, setChatTo] = useState('')
+  const [chatText, setChatText] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -26,6 +30,10 @@ export default function DashboardPage() {
       const result = await getDashboardSummary()
       if (result.success && result.data) {
         setData(result.data)
+      }
+      const emps = await getEmployees()
+      if (emps.success && emps.data) {
+        setStaff(emps.data.filter((e) => e.status === 'ACTIVE').map((e) => ({ id: e.id, name: e.name, title: e.title })))
       }
       setLoading(false)
     }
@@ -51,6 +59,15 @@ export default function DashboardPage() {
       sessionStorage.setItem('assistant_draft', text)
     } catch {}
     router.push('/assistant')
+  }
+
+  function startEmployeeChat() {
+    const text = chatText.trim()
+    if (!text || !chatTo) return
+    try {
+      sessionStorage.setItem(`employee_chat_draft_${chatTo}`, text)
+    } catch {}
+    router.push(`/employees/${chatTo}/chat`)
   }
 
   if (loading) {
@@ -112,20 +129,55 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Hızlı İşlemler</h3>
-          <div className="space-y-2">
-            <Link href="/tasks#yeni-gorev" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
-              ➕ Yeni Görev Oluştur
-            </Link>
-            <Link href="/meetings" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
-              🤝 Toplantı Başlat
-            </Link>
-            <Link href="/employees?yeni=1" className="block w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-left">
-              👥 Çalışan Ekle
+        {/* Employee chat */}
+        <div className="bg-white rounded-lg shadow p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Çalışanla Sohbet</h3>
+            <Link href="/employees" className="px-4 py-1.5 bg-slate-900 text-white rounded text-sm hover:bg-slate-700">
+              👥 Çalışanlar
             </Link>
           </div>
+          <form
+            className="flex-1 flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              startEmployeeChat()
+            }}
+          >
+            <label htmlFor="dashboard-employee-select" className="sr-only">Çalışan seç</label>
+            <select
+              id="dashboard-employee-select"
+              value={chatTo}
+              onChange={(e) => setChatTo(e.target.value)}
+              className="border border-slate-300 rounded px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Çalışan seç…</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} — {s.title}</option>
+              ))}
+            </select>
+            <label htmlFor="dashboard-employee-input" className="sr-only">Çalışana mesaj</label>
+            <textarea
+              id="dashboard-employee-input"
+              value={chatText}
+              onChange={(e) => setChatText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  startEmployeeChat()
+                }
+              }}
+              maxLength={4000}
+              placeholder="Seçtiğin çalışana yaz…"
+              className="flex-1 min-h-24 border border-slate-300 rounded px-3 py-2 text-sm resize-none"
+            />
+            <button
+              disabled={!chatTo || !chatText.trim()}
+              className="self-end px-4 py-2 bg-slate-900 text-white rounded text-sm disabled:opacity-50"
+            >
+              Gönder
+            </button>
+          </form>
         </div>
 
         {/* Assistant */}
