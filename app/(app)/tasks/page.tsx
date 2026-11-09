@@ -46,6 +46,7 @@ export default function TasksPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [approvals, setApprovals] = useState<Approval[]>([])
   const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -60,6 +61,12 @@ export default function TasksPage() {
     if (e.success && e.data) setEmployees(e.data as Employee[])
     setApprovals(a)
     setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get('durum')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (d && d in STATUS_LABELS) setStatusFilter(d)
   }, [])
 
   useEffect(() => {
@@ -103,6 +110,7 @@ export default function TasksPage() {
     })
   }
 
+  const visibleTasks = statusFilter ? tasks.filter((t) => t.status === statusFilter) : tasks
   const inReview = tasks.filter((t) => t.status === 'REVIEW')
   const blocked = tasks.filter((t) => t.status === 'BLOCKED' && t.result)
 
@@ -203,6 +211,13 @@ export default function TasksPage() {
       {loading ? (
         <div className="text-slate-500">Yükleniyor...</div>
       ) : (
+        <div className="space-y-3">
+        {statusFilter && (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full">Filtre: {STATUS_LABELS[statusFilter]} ({visibleTasks.length})</span>
+            <button onClick={() => { setStatusFilter(null); window.history.replaceState(null, '', '/tasks') }} className="text-slate-600 underline">Filtreyi kaldır</button>
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-slate-100 border-b">
@@ -215,7 +230,7 @@ export default function TasksPage() {
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <tr key={task.id} className="border-b hover:bg-slate-50">
                   <td className="px-6 py-4">{task.title}</td>
                   <td className="px-6 py-4">{task.assignee?.name || '—'}</td>
@@ -240,6 +255,7 @@ export default function TasksPage() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>

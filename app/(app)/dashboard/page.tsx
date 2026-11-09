@@ -227,10 +227,14 @@ export default function DashboardPage() {
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Görev Dağılımı</h3>
           <div className="space-y-3">
             {Object.entries(data?.taskStats || {}).map(([status, count]) => (
-              <div key={status} className="flex justify-between items-center">
+              <Link
+                key={status}
+                href={`/tasks?durum=${encodeURIComponent(status)}`}
+                className="flex justify-between items-center rounded px-2 py-1 -mx-2 hover:bg-slate-100"
+              >
                 <span className="text-slate-600">{getStatusLabel(status)}</span>
                 <span className="font-semibold text-slate-900">{count}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
