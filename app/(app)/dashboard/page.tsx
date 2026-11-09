@@ -101,7 +101,7 @@ export default function DashboardPage() {
           icon="🤝"
         />
         <MetricCard
-          title="Açık Riskler"
+          title="Aktif Riskler"
           href="/reports"
           value={data?.risks || 0}
           icon="⚠️"
