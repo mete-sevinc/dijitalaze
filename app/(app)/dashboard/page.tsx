@@ -87,32 +87,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <MetricCard
-          title="Toplam Çalışan"
-          href="/employees"
-          value={data?.employees || 0}
-          icon="👥"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
           title="Aktif Görevler"
           href="/tasks"
           value={data?.taskStats['IN_PROGRESS'] || 0}
           icon="✅"
-        />
-        <MetricCard
-          title="Geciken Görevler"
-          href="/tasks"
-          value={data?.overdueTasks || 0}
-          icon="⏰"
-          alert={true}
-        />
-        <MetricCard
-          title="Açık Riskler"
-          href="/reports"
-          value={data?.risks || 0}
-          icon="⚠️"
-          alert={true}
         />
         <MetricCard
           title="Aktif Toplantılar"
@@ -121,10 +101,11 @@ export default function DashboardPage() {
           icon="🤝"
         />
         <MetricCard
-          title="Yapılan Görevler"
-          href="/tasks"
-          value={data?.taskStats['DONE'] || 0}
-          icon="✨"
+          title="Açık Riskler"
+          href="/reports"
+          value={data?.risks || 0}
+          icon="⚠️"
+          alert={true}
         />
       </div>
 
