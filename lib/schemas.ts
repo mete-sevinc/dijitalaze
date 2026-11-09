@@ -18,6 +18,17 @@ export const createEmployeeSchema = z.object({
   escalationRules: z.string().optional(),
   collaboration: z.string().optional(),
   managerId: z.string().optional(),
+  permissions: z
+    .string()
+    .refine((v) => {
+      try {
+        const a = JSON.parse(v)
+        return Array.isArray(a) && a.every((x) => typeof x === 'string' && /^[A-Z_]{2,60}$/.test(x))
+      } catch {
+        return false
+      }
+    }, 'Yetkiler JSON string dizisi olmalı')
+    .optional(),
 })
 
 export const updateEmployeeSchema = createEmployeeSchema.partial()

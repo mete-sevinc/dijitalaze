@@ -126,6 +126,7 @@ export default function EmployeeDetailPage() {
       decisionRules: form.decisionRules || undefined,
       escalationRules: form.escalationRules || undefined,
       collaboration: form.collaboration || undefined,
+      permissions: form.permissions || undefined,
     })
     if (result.success) {
       setEmployee({ ...employee, ...form } as Employee)
@@ -268,6 +269,7 @@ export default function EmployeeDetailPage() {
             { label: 'Karar Kuralları', key: 'decisionRules' as const },
             { label: 'Eskalasyon Kuralları', key: 'escalationRules' as const },
             { label: 'İş Birliği Düzeni (kimden girdi alır, kime teslim eder, kimle koordine olur)', key: 'collaboration' as const },
+            { label: 'Yetkiler (JSON dizi, örn. ["CAN_UPDATE_TASKS","CAN_READ_CRM"])', key: 'permissions' as const },
           ].map(({ label, key }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
