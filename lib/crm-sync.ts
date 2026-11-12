@@ -38,6 +38,7 @@ export async function syncCrm(budgetMs: number, skip: ReadonlySet<string> = new 
     while (Date.now() < deadline) {
       const rows = await reader.page(name, st.passSince, offset, PAGE_SIZE)
       if (rows.length) {
+        if (name === 'AOS_Products_Quotes' || name === 'AOS_Line_Item_Groups') await attachParents(rows)
         const built = rows.map((r) => ({ id: r.id, ...buildRecord(name, r.id, r.fields), mod: parseCrmDate(r.fields.date_modified)?.toISOString() ?? null }))
         await prisma.$executeRaw`
           INSERT INTO "CrmRecord" ("id", "module", "recordId", "title", "content", "crmModifiedAt", "syncedAt")
@@ -75,6 +76,18 @@ export async function syncCrm(budgetMs: number, skip: ReadonlySet<string> = new 
     results.push({ module: name, fetched, done })
   }
   return results
+}
+
+// Satır ögesi/grup kaydına bağlı olduğu teklif/fatura/sözleşmenin adını işler (aramada "hangi belgenin kalemi" görünsün).
+async function attachParents(rows: { id: string; fields: Record<string, string> }[]) {
+  const ids = [...new Set(rows.map((r) => r.fields.parent_id).filter(Boolean))]
+  if (!ids.length) return
+  const parents = await prisma.crmRecord.findMany({ where: { recordId: { in: ids } }, select: { recordId: true, module: true, title: true } })
+  const byId = new Map(parents.map((p) => [p.recordId, `${p.module}: ${p.title}`]))
+  for (const r of rows) {
+    const label = byId.get(r.fields.parent_id)
+    if (label) r.fields.bagli_kayit = label
+  }
 }
 
 export type CrmHit = { module: string; recordId: string; title: string; snippet: string; modifiedAt: Date | null }

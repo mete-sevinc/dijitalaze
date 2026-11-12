@@ -7,6 +7,8 @@ export const CRM_MODULES = [
   'AOK_KnowledgeBase',
   'aze_PurchaseOrders', 'aze_ProjeDegerlendirme', 'aze_MaintenanceCalibration', 'aze_ServiceReport',
   'aze_OlcumTarama', 'aze_Stok', 'aze_KargoTakip',
+  // Satır ögeleri (teklif/fatura/sözleşme kalemleri) üst kayıtlardan sonra gelir: üst başlığı içeriğe işlenir.
+  'AOS_Products_Quotes', 'AOS_Line_Item_Groups', 'AOS_Product_Categories', 'AOP_Case_Updates', 'Prospects', 'FP_events',
 ] as const
 
 // Aramaya değer katmayan alanlar: kimlikler, denetim alanları, harita/para birimi kalıntıları, mükerrer USD alanları.
