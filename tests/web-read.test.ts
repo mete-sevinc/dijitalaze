@@ -25,6 +25,8 @@ describe('web_read URL izin listesi', () => {
     'https://www.youtube.com/@azeotomasyon/%2e%2e/x',
     'https://www.youtube.com/@azeotomasyon/baska',
     'https://tubitak.gov.tr.evil.com/',
+    'https://www.tubitak.gov.tr/tr/gizli-veri-musteri-adi-ABC%20DEF',
+    'https://www.azeotomasyon.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     'https://evil.tubitak.gov.tr/',
     'https://nottubitak.gov.tr/',
     'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

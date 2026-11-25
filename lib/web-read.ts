@@ -17,6 +17,14 @@ const INSTAGRAM_HOSTS = new Set(['instagram.com', 'www.instagram.com'])
 
 export class WebReadError extends Error {}
 
+// Yol üzerinden veri sızdırmayı zorlaştır: yalnız sade ASCII slug, kısa segmentler, sınırlı derinlik
+function assertPlainPath(u: URL) {
+  const segs = u.pathname.split('/').filter(Boolean)
+  if (segs.length > 8 || u.pathname.length > 200 || !/^[A-Za-z0-9\-_./]*$/.test(u.pathname) || segs.some((x) => x.length > 60)) {
+    throw new WebReadError('Bu yol biçimine izin yok')
+  }
+}
+
 export function parseAllowedUrl(raw: string): URL {
   let u: URL
   try {
@@ -28,7 +36,12 @@ export function parseAllowedUrl(raw: string): URL {
   if (u.username || u.password || u.port) throw new WebReadError('Bu URL biçimine izin yok')
   if (/%2f|%5c|%2e/i.test(u.pathname)) throw new WebReadError('Bu URL biçimine izin yok')
   const h = u.hostname.toLowerCase()
-  if (SITE_HOSTS.has(h)) return u
+  if (SITE_HOSTS.has(h)) {
+    assertPlainPath(u)
+    u.search = ''
+    u.hash = ''
+    return u
+  }
   const seg = u.pathname.split('/').filter(Boolean).map((x) => x.toLowerCase())
   if (YOUTUBE_HOSTS.has(h)) {
     const keys = [...u.searchParams.keys()]
@@ -44,7 +57,7 @@ export function parseAllowedUrl(raw: string): URL {
   }
   if (GOV_HOSTS.has(h)) {
     // Veri sızdırma kanalını kapat: sorgu/parça atılır, yol derinliği sınırlı
-    if (seg.length > 8 || u.pathname.length > 200) throw new WebReadError('Yol çok uzun')
+    assertPlainPath(u)
     u.search = ''
     u.hash = ''
     return u
