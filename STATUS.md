@@ -64,3 +64,9 @@ Gerçek Graph (Entra) ile toplu kullanıcı senaryoları (tek kullanıcı var); 
 
 ## Sıradaki
 `EmployeeResource` (klasör bazlı erişim) + Graph dosya araçları (Entra'ya `Files.ReadWrite.All`/`Sites.Read.All` gerekir; önce hangi SharePoint sitesi/klasör yapısı olacağı belirlenmeli) → ana sayfa tasarımı → ikinci kullanıcı gelmeden firma-üyelik tablosu (IDOR notu) → harici hata izleme. Tüm analiz maddeleri kapalı; yalnızca 1 (ikinci kullanıcı öncesi üyelik) ve 19 (harici izleme) notlu.
+
+## 2026-11-26 — Pazarlama/Selin, web_read, SharePoint
+- Yeni çalışan **Selin (Kıdemli Pazarlama Uzmanı)** canlıda; Tülin/Burak/Mehmet profillerine öğrenme görevleri eklendi (hepsi canlı DB'de, UI'dan).
+- `web_read` (lib/web-read.ts): salt okunur, izin listesi: azeotomasyon.com, YouTube/Instagram @azeotomasyon, resmî kurumlar (tubitak/kosgeb/sanayi/ticaret/sbb/resmigazete/mevzuat .gov.tr). Yetki `CAN_READ_WEB` (Selin, Tülin). Site sayfaları Vercel IP'sinden Natro bot korumasına takılıyor (feed çalışıyor); LinkedIn okunamaz.
+- `sharepoint_search/read` (lib/sharepoint.ts): Graph delegated `Sites.Read.All`+`Files.Read` (Entra'ya eklendi, Mete onayladı). Vercel env: SHAREPOINT_OWNER_EMAIL, SHAREPOINT_ALLOWED_PREFIXES (…/AZE_external/), SHAREPOINT_DENIED_PREFIXES (…/Finans/). Yetki `CAN_READ_SHAREPOINT` (Burak, Mehmet). Canlıda doğrulandı; Finans engeli çalışıyor. OneDrive kişisel (-my.sharepoint.com) ve AzeHub bağlı değil.
+- Açık: add_employee_memory onay kapısında değil; daha dar erişim için Sites.Selected; engelli klasör listesi (İK vb.) Mete'den alınmalı.
