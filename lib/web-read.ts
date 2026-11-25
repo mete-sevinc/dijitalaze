@@ -5,6 +5,7 @@ const MAX_BYTES = 400_000
 const MAX_TEXT = 12_000
 const TIMEOUT_MS = 10_000
 const MAX_REDIRECTS = 3
+const YOUTUBE_CHANNEL_ID = 'UCK5wBNiFjJPQzQ9QfErGxHw'
 
 const SITE_HOSTS = new Set(['azeotomasyon.com', 'www.azeotomasyon.com'])
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com'])
@@ -22,15 +23,20 @@ export function parseAllowedUrl(raw: string): URL {
   if (u.protocol !== 'https:') throw new WebReadError('Yalnız https')
   if (u.username || u.password || u.port) throw new WebReadError('Bu URL biçimine izin yok')
   const h = u.hostname.toLowerCase()
-  const p = u.pathname.toLowerCase()
   if (SITE_HOSTS.has(h)) return u
+  const seg = u.pathname.split('/').filter(Boolean).map((x) => x.toLowerCase())
   if (YOUTUBE_HOSTS.has(h)) {
-    if (p === '/watch' || p === '/feeds/videos.xml' || p.startsWith('/@azeotomasyon') || p === '/channel/uck5wbnifjjpqzq9qfergxhw') return u
-    throw new WebReadError('YouTube için yalnız @azeotomasyon kanalı, video sayfası veya kanal RSS\'i')
+    const ok =
+      seg[0] === '@azeotomasyon' ||
+      (seg[0] === 'channel' && seg[1] === YOUTUBE_CHANNEL_ID.toLowerCase() && seg.length === 2) ||
+      (seg.length === 2 && seg[0] === 'feeds' && seg[1] === 'videos.xml' && u.searchParams.get('channel_id') === YOUTUBE_CHANNEL_ID) ||
+      (seg.length === 1 && seg[0] === 'watch' && /^[\w-]{11}$/.test(u.searchParams.get('v') ?? ''))
+    if (ok) return u
+    throw new WebReadError("YouTube için yalnız @azeotomasyon kanalı, kanal RSS'i veya video sayfası")
   }
   if (INSTAGRAM_HOSTS.has(h)) {
-    if (p.startsWith('/azeotomasyon') || p.startsWith('/p/') || p.startsWith('/reel/')) return u
-    throw new WebReadError('Instagram için yalnız @azeotomasyon hesabı ve gönderileri')
+    if (seg[0] === 'azeotomasyon') return u
+    throw new WebReadError('Instagram için yalnız @azeotomasyon hesabı')
   }
   throw new WebReadError('Bu alan adı izinli değil (azeotomasyon.com, YouTube @azeotomasyon, Instagram @azeotomasyon)')
 }
@@ -91,11 +97,12 @@ export function extractPage(body: string, contentType: string, base: URL) {
 }
 
 export async function readWeb(raw: string) {
+  const signal = AbortSignal.timeout(TIMEOUT_MS)
   let url = parseAllowedUrl(raw)
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
     const res = await fetch(url, {
       redirect: 'manual',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AZEDijital/1.0)', 'Accept-Language': 'tr,en;q=0.5' },
     })
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
@@ -112,8 +119,9 @@ export async function readWeb(raw: string) {
     while (size < MAX_BYTES) {
       const { done, value } = await reader.read()
       if (done) break
-      chunks.push(value)
-      size += value.length
+      const room = MAX_BYTES - size
+      chunks.push(value.length > room ? value.subarray(0, room) : value)
+      size += Math.min(value.length, room)
     }
     await reader.cancel().catch(() => {})
     const body = new TextDecoder('utf-8').decode(Buffer.concat(chunks))
