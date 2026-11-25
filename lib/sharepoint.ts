@@ -99,10 +99,23 @@ export async function readSharePointItem(driveId: string, itemId: string) {
   const base = { ad: meta.name, bağlantı: meta.webUrl, değişiklik: String(meta.lastModifiedDateTime ?? '').slice(0, 10), boyut: meta.size }
   const mime = String(meta.file?.mimeType ?? '')
   const isText = /^text\//.test(mime) || /(json|csv|xml)$/.test(mime)
-  if (!isText || (meta.size ?? 0) > MAX_BYTES) {
+  if (!isText || (meta.size ?? Infinity) > MAX_BYTES) {
     return { ...base, içerik: null, not: 'Bu dosya türü/boyutu doğrudan okunamaz; arama sonucundaki özeti ve bağlantıyı kullan.' }
   }
   const content = await graph(owner, `/drives/${driveId}/items/${itemId}/content`, { headers: { 'content-type': 'text/plain' } })
-  const text = (await content.text()).slice(0, MAX_TEXT)
+  // Gerçek akışta da sınırla: meta.size'a güvenme
+  const reader = content.body?.getReader()
+  if (!reader) throw new SharePointError('Boş yanıt')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  while (size < MAX_BYTES) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const room = MAX_BYTES - size
+    chunks.push(value.length > room ? value.subarray(0, room) : value)
+    size += Math.min(value.length, room)
+  }
+  await reader.cancel().catch(() => {})
+  const text = new TextDecoder('utf-8').decode(Buffer.concat(chunks)).slice(0, MAX_TEXT)
   return { ...base, içerik: text }
 }
