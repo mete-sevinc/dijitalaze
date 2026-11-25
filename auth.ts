@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
-import { MAIL_SCOPE, saveRefreshToken } from '@/lib/assistant/mail'
+import { LOGIN_SCOPE, saveRefreshToken } from '@/lib/assistant/mail'
 import { emailFromProfile, isAllowedEmail, parseAllowedEmails } from '@/lib/auth-policy'
 
 // Env: AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET,
@@ -14,7 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID?.trim(),
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET?.trim(),
       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER?.trim(),
-      authorization: { params: { scope: MAIL_SCOPE } },
+      authorization: { params: { scope: LOGIN_SCOPE } },
     }),
   ],
   session: { strategy: 'jwt' },

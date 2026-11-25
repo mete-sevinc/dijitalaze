@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db'
 
 // Env: AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET, AUTH_MICROSOFT_ENTRA_ID_ISSUER
 export const MAIL_SCOPE = 'openid profile email offline_access User.Read Mail.Send'
+// Yalnız okuma (delegated): SharePoint/portal ve kullanıcının kendi OneDrive dosyaları
+export const SHAREPOINT_SCOPE = 'offline_access Sites.Read.All Files.Read'
+export const LOGIN_SCOPE = `${MAIL_SCOPE} Sites.Read.All Files.Read`
 
 function key(): Buffer {
   const secret = process.env.AUTH_SECRET
@@ -37,7 +40,7 @@ export async function hasMailAccount(owner: string): Promise<boolean> {
   return (await prisma.assistantMailAccount.count({ where: { ownerEmail: owner } })) > 0
 }
 
-async function accessToken(owner: string): Promise<string> {
+export async function accessToken(owner: string, scope: string = MAIL_SCOPE): Promise<string> {
   const acc = await prisma.assistantMailAccount.findUnique({ where: { ownerEmail: owner } })
   if (!acc) throw new Error('Mail yetkisi yok: çıkış yapıp Microsoft ile tekrar giriş yapın')
   const issuer = process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER?.replace(/\/v2\.0\/?$/, '')
@@ -49,7 +52,7 @@ async function accessToken(owner: string): Promise<string> {
       client_secret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET ?? '',
       grant_type: 'refresh_token',
       refresh_token: decrypt(acc.refreshToken),
-      scope: MAIL_SCOPE,
+      scope,
     }),
     signal: AbortSignal.timeout(15000),
   })

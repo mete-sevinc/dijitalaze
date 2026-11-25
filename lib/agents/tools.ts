@@ -143,6 +143,32 @@ export const agentTools: AITool[] = [
     },
   },
   {
+    name: 'sharepoint_search',
+    description:
+      'AZE portalı (SharePoint) belgelerinde ara. Yalnız izinli klasörlerdeki sonuçlar döner; ad, bağlantı, tarih ve içerik özeti verir. Salt okunur.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Aranacak metin veya dosya adı' },
+        limit: { type: 'number', description: 'En fazla sonuç (varsayılan 10, en çok 20)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'sharepoint_read',
+    description:
+      'Arama sonucundaki bir belgenin metnini oku (yalnız metin/CSV/JSON/XML, 300 KB altı). Diğer türlerde yalnız bilgi döner. driveId ve itemId sharepoint_search sonucundan alınır.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        driveId: { type: 'string', description: 'Arama sonucundaki driveId' },
+        itemId: { type: 'string', description: 'Arama sonucundaki itemId' },
+      },
+      required: ['driveId', 'itemId'],
+    },
+  },
+  {
     name: 'crm_quote_stats',
     description:
       'CRM TEKLİF istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TUTAR (kdvHariç ve kdvDahil) ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, uydurma. Para birimleri EUR, TRY, GBP, USD olabilir; farklı para birimlerini birbiriyle toplama, kur çevirme.',
