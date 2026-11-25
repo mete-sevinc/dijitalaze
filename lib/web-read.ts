@@ -26,17 +26,16 @@ export function parseAllowedUrl(raw: string): URL {
   if (SITE_HOSTS.has(h)) return u
   const seg = u.pathname.split('/').filter(Boolean).map((x) => x.toLowerCase())
   if (YOUTUBE_HOSTS.has(h)) {
+    const keys = [...u.searchParams.keys()]
     const ok =
-      seg[0] === '@azeotomasyon' ||
-      (seg[0] === 'channel' && seg[1] === YOUTUBE_CHANNEL_ID.toLowerCase() && seg.length === 2) ||
-      (seg.length === 2 && seg[0] === 'feeds' && seg[1] === 'videos.xml' && u.searchParams.get('channel_id') === YOUTUBE_CHANNEL_ID) ||
-      (seg.length === 1 && seg[0] === 'watch' && /^[\w-]{11}$/.test(u.searchParams.get('v') ?? ''))
+      (seg[0] === '@azeotomasyon' && seg.length <= 2 && keys.length === 0) ||
+      (seg.length === 2 && seg[0] === 'feeds' && seg[1] === 'videos.xml' && keys.length === 1 && u.searchParams.getAll('channel_id').length === 1 && u.searchParams.get('channel_id') === YOUTUBE_CHANNEL_ID)
     if (ok) return u
-    throw new WebReadError("YouTube için yalnız @azeotomasyon kanalı, kanal RSS'i veya video sayfası")
+    throw new WebReadError("YouTube için yalnız @azeotomasyon kanalı ve kanal RSS'i (videoların başlık/açıklamaları RSS'te)")
   }
   if (INSTAGRAM_HOSTS.has(h)) {
-    if (seg[0] === 'azeotomasyon') return u
-    throw new WebReadError('Instagram için yalnız @azeotomasyon hesabı')
+    if (seg.length === 1 && seg[0] === 'azeotomasyon' && [...u.searchParams.keys()].length === 0) return u
+    throw new WebReadError('Instagram için yalnız @azeotomasyon profil sayfası')
   }
   throw new WebReadError('Bu alan adı izinli değil (azeotomasyon.com, YouTube @azeotomasyon, Instagram @azeotomasyon)')
 }

@@ -6,7 +6,6 @@ describe('web_read URL izin listesi', () => {
     'https://www.azeotomasyon.com/aze/kurumsal/hakkimizda/',
     'https://azeotomasyon.com/feed/',
     'https://www.youtube.com/@azeotomasyon/videos',
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw',
     'https://www.instagram.com/azeotomasyon/',
   ])('izinli: %s', (u) => expect(() => parseAllowedUrl(u)).not.toThrow())
@@ -20,6 +19,10 @@ describe('web_read URL izin listesi', () => {
     'https://127.0.0.1/',
     'https://169.254.169.254/latest/meta-data',
     'https://www.youtube.com/@baskasi',
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw&channel_id=UCbaskasi',
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw&user=x',
+    'https://www.instagram.com/azeotomasyon/p/abc123/',
     'https://www.youtube.com/@azeotomasyonevil',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCbaskasi',
     'https://www.youtube.com/watch?v=../../x',
