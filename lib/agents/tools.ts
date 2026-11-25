@@ -131,6 +131,18 @@ export const agentTools: AITool[] = [
     },
   },
   {
+    name: 'web_read',
+    description:
+      'AZE Otomasyon\'un kendi web sitesini (azeotomasyon.com), YouTube kanalını (@azeotomasyon, kanal RSS\'i, video sayfaları) ve Instagram hesabını (@azeotomasyon) oku. Başka alan adları reddedilir. Sayfa metni, açıklama ve aynı siteye ait bağlantıları döndürür; bağlantıları izleyerek tüm siteyi gezebilirsin. Site haberleri için /feed/ adresi kullanılabilir. Yalnız okur, hiçbir şey yayınlamaz.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Okunacak tam https URL' },
+      },
+      required: ['url'],
+    },
+  },
+  {
     name: 'crm_quote_stats',
     description:
       'CRM TEKLİF istatistiği: verilen yıl (teklifin oluşturulma yılı) için teklif grubuna (PAS, CMM, YPA, Genel) ve aşamaya (Closed Accepted=kazanılan, Closed Lost=kaybedilen, Negotiation, Draft vb.) göre ADET, para birimi bazında TUTAR (kdvHariç ve kdvDahil) ve kaybedilenler için kaybetme sebepleri verir. Rakamları yalnızca bu araçtan al, uydurma. Para birimleri EUR, TRY, GBP, USD olabilir; farklı para birimlerini birbiriyle toplama, kur çevirme.',
