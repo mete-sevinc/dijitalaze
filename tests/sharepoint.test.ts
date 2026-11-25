@@ -3,6 +3,16 @@ import { allowedPrefixes, isAllowedUrl } from '@/lib/sharepoint'
 
 const P = allowedPrefixes('https://azeotomasyon.sharepoint.com/AZE_external')
 
+describe('sharepoint engellenen klasörler', () => {
+  const D = allowedPrefixes('https://azeotomasyon.sharepoint.com/AZE_external/Finans')
+  it('izinli kök içindeki engelli klasör reddedilir, diğerleri geçer', () => {
+    expect(isAllowedUrl('https://azeotomasyon.sharepoint.com/AZE_external/Finans/Giden_Fatura_F01/a.pdf', P, D)).toBe(false)
+    expect(isAllowedUrl('https://azeotomasyon.sharepoint.com/AZE_external/finans/a.pdf', P, D)).toBe(false)
+    expect(isAllowedUrl('https://azeotomasyon.sharepoint.com/AZE_external/Teklif_F04/a.pdf', P, D)).toBe(true)
+    expect(isAllowedUrl('https://azeotomasyon.sharepoint.com/AZE_external/FinansDisi/a.pdf', P, D)).toBe(true)
+  })
+})
+
 describe('sharepoint izin önekleri', () => {
   it('yalnız geçerli https sharepoint önekleri kabul edilir', () => {
     expect(allowedPrefixes('http://x.sharepoint.com/a, https://evil.com/a, https://azeotomasyon.sharepoint.com/A')).toEqual(['https://azeotomasyon.sharepoint.com/A/'])

@@ -9,7 +9,15 @@ const ID_RE = /^[A-Za-z0-9!_\-]{5,300}$/
 
 export class SharePointError extends Error {}
 
+export function deniedPrefixes() {
+  return parsePrefixes(process.env.SHAREPOINT_DENIED_PREFIXES)
+}
+
 export function allowedPrefixes(raw = process.env.SHAREPOINT_ALLOWED_PREFIXES): string[] {
+  return parsePrefixes(raw)
+}
+
+function parsePrefixes(raw: string | undefined): string[] {
   return (raw ?? '')
     .split(',')
     .map((x) => x.trim())
@@ -18,7 +26,7 @@ export function allowedPrefixes(raw = process.env.SHAREPOINT_ALLOWED_PREFIXES): 
 }
 
 // Önek karşılaştırması segment sınırında: ".../AZE_external/" izinliyse ".../AZE_external_gizli/x" geçmez.
-export function isAllowedUrl(webUrl: string | undefined, prefixes = allowedPrefixes()): boolean {
+export function isAllowedUrl(webUrl: string | undefined, prefixes = allowedPrefixes(), denied = deniedPrefixes()): boolean {
   if (!webUrl) return false
   let u: URL
   try {
@@ -36,7 +44,10 @@ export function isAllowedUrl(webUrl: string | undefined, prefixes = allowedPrefi
   // Nokta segmentleri ve ters eğik çizgi: önek atlatma (../) girişimi
   if (path.includes('\\') || path.split('/').some((seg) => seg === '.' || seg === '..')) return false
   const norm = u.origin.toLowerCase() + path
-  return prefixes.some((p) => norm.toLowerCase().startsWith(p.toLowerCase()))
+  const lower = norm.toLowerCase()
+  // Engellenen klasörler her zaman izinlilerin önüne geçer
+  if (denied.some((d) => lower.startsWith(d.toLowerCase()))) return false
+  return prefixes.some((p) => lower.startsWith(p.toLowerCase()))
 }
 
 function ctx() {
