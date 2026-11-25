@@ -8,6 +8,9 @@ describe('web_read URL izin listesi', () => {
     'https://www.youtube.com/@azeotomasyon/videos',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw',
     'https://www.instagram.com/azeotomasyon/',
+    'https://www.tubitak.gov.tr/tr/destekler',
+    'https://kosgeb.gov.tr/site/tr/genel/destekler',
+    'https://ticaret.gov.tr/destekler',
   ])('izinli: %s', (u) => expect(() => parseAllowedUrl(u)).not.toThrow())
 
   it.each([
@@ -19,6 +22,10 @@ describe('web_read URL izin listesi', () => {
     'https://127.0.0.1/',
     'https://169.254.169.254/latest/meta-data',
     'https://www.youtube.com/@baskasi',
+    'https://www.youtube.com/@azeotomasyon/%2e%2e/x',
+    'https://www.youtube.com/@azeotomasyon/baska',
+    'https://tubitak.gov.tr.evil.com/',
+    'https://nottubitak.gov.tr/',
     'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw&channel_id=UCbaskasi',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw&user=x',

@@ -5,6 +5,8 @@ const MAX_BYTES = 400_000
 const MAX_TEXT = 12_000
 const TIMEOUT_MS = 10_000
 const MAX_REDIRECTS = 3
+const GOV_DOMAINS = ['tubitak.gov.tr', 'kosgeb.gov.tr', 'sanayi.gov.tr', 'ticaret.gov.tr', 'sbb.gov.tr', 'resmigazete.gov.tr', 'mevzuat.gov.tr']
+const YOUTUBE_HANDLE_TABS = new Set(['videos', 'featured', 'streams', 'playlists', 'about'])
 const YOUTUBE_CHANNEL_ID = 'UCK5wBNiFjJPQzQ9QfErGxHw'
 
 const SITE_HOSTS = new Set(['azeotomasyon.com', 'www.azeotomasyon.com'])
@@ -22,13 +24,14 @@ export function parseAllowedUrl(raw: string): URL {
   }
   if (u.protocol !== 'https:') throw new WebReadError('Yalnız https')
   if (u.username || u.password || u.port) throw new WebReadError('Bu URL biçimine izin yok')
+  if (/%2f|%5c|%2e/i.test(u.pathname)) throw new WebReadError('Bu URL biçimine izin yok')
   const h = u.hostname.toLowerCase()
   if (SITE_HOSTS.has(h)) return u
   const seg = u.pathname.split('/').filter(Boolean).map((x) => x.toLowerCase())
   if (YOUTUBE_HOSTS.has(h)) {
     const keys = [...u.searchParams.keys()]
     const ok =
-      (seg[0] === '@azeotomasyon' && seg.length <= 2 && keys.length === 0) ||
+      (seg[0] === '@azeotomasyon' && (seg.length === 1 || (seg.length === 2 && YOUTUBE_HANDLE_TABS.has(seg[1]))) && keys.length === 0) ||
       (seg.length === 2 && seg[0] === 'feeds' && seg[1] === 'videos.xml' && keys.length === 1 && u.searchParams.getAll('channel_id').length === 1 && u.searchParams.get('channel_id') === YOUTUBE_CHANNEL_ID)
     if (ok) return u
     throw new WebReadError("YouTube için yalnız @azeotomasyon kanalı ve kanal RSS'i (videoların başlık/açıklamaları RSS'te)")
@@ -37,7 +40,8 @@ export function parseAllowedUrl(raw: string): URL {
     if (seg.length === 1 && seg[0] === 'azeotomasyon' && [...u.searchParams.keys()].length === 0) return u
     throw new WebReadError('Instagram için yalnız @azeotomasyon profil sayfası')
   }
-  throw new WebReadError('Bu alan adı izinli değil (azeotomasyon.com, YouTube @azeotomasyon, Instagram @azeotomasyon)')
+  if (GOV_DOMAINS.some((d) => h === d || h === `www.${d}` || h.endsWith(`.${d}`))) return u
+  throw new WebReadError('Bu alan adı izinli değil (azeotomasyon.com, YouTube/Instagram @azeotomasyon, TÜBİTAK/KOSGEB/Sanayi/Ticaret/SBB/Resmî Gazete/Mevzuat)')
 }
 
 function decodeEntities(s: string) {

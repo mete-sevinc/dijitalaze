@@ -133,7 +133,7 @@ export const agentTools: AITool[] = [
   {
     name: 'web_read',
     description:
-      'AZE Otomasyon\'un kendi web sitesini (azeotomasyon.com), YouTube kanalını (@azeotomasyon, kanal RSS\'i, video sayfaları) ve Instagram hesabını (@azeotomasyon) oku. Başka alan adları reddedilir. Sayfa metni, açıklama ve aynı siteye ait bağlantıları döndürür; bağlantıları izleyerek tüm siteyi gezebilirsin. Site haberleri için /feed/ adresi kullanılabilir. Yalnız okur, hiçbir şey yayınlamaz.',
+      'AZE Otomasyon\'un kendi web sitesini (azeotomasyon.com), YouTube kanalını (@azeotomasyon, kanal RSS\'i, video sayfaları) ve Instagram hesabını (@azeotomasyon) oku. Ayrıca resmî destek kurumları: tubitak.gov.tr, kosgeb.gov.tr, sanayi.gov.tr, ticaret.gov.tr, sbb.gov.tr, resmigazete.gov.tr, mevzuat.gov.tr (ve alt alan adları). Başka alan adları reddedilir. Sayfa metni, açıklama ve aynı siteye ait bağlantıları döndürür; bağlantıları izleyerek tüm siteyi gezebilirsin. Site haberleri için /feed/ adresi kullanılabilir. Yalnız okur, hiçbir şey yayınlamaz.',
     inputSchema: {
       type: 'object',
       properties: {
