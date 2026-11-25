@@ -46,6 +46,10 @@ export function deniedPrefixes(raw = process.env.SHAREPOINT_DENIED_PREFIXES): Pr
   return parsePrefixList(raw)
 }
 
+// Adında arşiv geçen her klasör/dosya segmenti engellidir (ör. ARSIV_2012-2025, tmp_ARSIV_2012-2026)
+const DENIED_SEGMENT_WORDS = ['arsiv', 'arşiv', 'archive']
+const isArchiveSegment = (seg: string) => DENIED_SEGMENT_WORDS.some((w) => seg.includes(w))
+
 const covers = (p: Prefix, origin: string, segs: string[]) => p.origin === origin && p.segs.length <= segs.length && p.segs.every((x, i) => x === segs[i])
 
 // Segment sınırında, normalize edilmiş eşleşme. Belirsiz biçimler (sorgu, //, .., /Forms/, kodlama hatası) reddedilir.
@@ -57,7 +61,7 @@ export function isAllowedUrl(webUrl: string | undefined, allow: Prefix[] = allow
     const path = decodeURIComponent(u.pathname)
     if (path.includes('//') || path.includes('\\')) return false
     const segs = path.split('/').filter(Boolean).map(norm)
-    if (segs.some((x) => x === '.' || x === '..' || x === 'forms')) return false
+    if (segs.some((x) => x === '.' || x === '..' || x === 'forms' || isArchiveSegment(x))) return false
     const origin = u.origin.toLowerCase()
     if (deny.some((d) => covers(d, origin, segs))) return false
     return allow.some((a) => covers(a, origin, segs))
