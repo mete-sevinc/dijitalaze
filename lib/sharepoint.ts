@@ -9,52 +9,69 @@ const ID_RE = /^[A-Za-z0-9!_\-]{5,300}$/
 
 export class SharePointError extends Error {}
 
-export function deniedPrefixes() {
-  return parsePrefixes(process.env.SHAREPOINT_DENIED_PREFIXES)
-}
+type Prefix = { origin: string; segs: string[] }
 
-export function allowedPrefixes(raw = process.env.SHAREPOINT_ALLOWED_PREFIXES): string[] {
-  return parsePrefixes(raw)
-}
+const norm = (x: string) => x.normalize('NFC').toLowerCase()
 
-function parsePrefixes(raw: string | undefined): string[] {
-  return (raw ?? '')
-    .split(',')
-    .map((x) => x.trim())
-    .filter((x) => /^https:\/\/[a-z0-9-]+\.sharepoint\.com\/.+/i.test(x))
-    .map((x) => (x.endsWith('/') ? x : x + '/'))
-}
-
-// Önek karşılaştırması segment sınırında: ".../AZE_external/" izinliyse ".../AZE_external_gizli/x" geçmez.
-export function isAllowedUrl(webUrl: string | undefined, prefixes = allowedPrefixes(), denied = deniedPrefixes()): boolean {
-  if (!webUrl) return false
+// "https://x.sharepoint.com/A/B" -> { origin, segs: ['a','b'] }; geçersizse null
+function parsePrefix(raw: string): Prefix | null {
+  if (/\.\.|%2e|%2f|%5c|\\|\/\//i.test(raw.trim().replace(/^https:\/\//i, ''))) return null
   let u: URL
   try {
-    u = new URL(webUrl)
+    u = new URL(raw.trim())
+    if (u.protocol !== 'https:' || !/^[a-z0-9-]+\.sharepoint\.com$/i.test(u.hostname) || u.search || u.hash || u.username || u.password || u.port) return null
+    const path = decodeURIComponent(u.pathname)
+    if (path.includes('//') || path.includes('\\')) return null
+    const segs = path.split('/').filter(Boolean).map(norm)
+    if (segs.length === 0 || segs.some((x) => x === '.' || x === '..')) return null
+    return { origin: u.origin.toLowerCase(), segs }
   } catch {
-    return false
+    return null
   }
-  if (u.protocol !== 'https:') return false
-  let path: string
+}
+
+// Yapılandırma: tek bir bozuk kayıt bile varsa tamamı reddedilir (sessizce atlanmaz)
+export function parsePrefixList(raw: string | undefined): Prefix[] {
+  const parts = (raw ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+  const list = parts.map(parsePrefix)
+  if (list.some((x) => x === null)) throw new SharePointError('SharePoint önek ayarı geçersiz')
+  return list as Prefix[]
+}
+
+export function allowedPrefixes(raw = process.env.SHAREPOINT_ALLOWED_PREFIXES): Prefix[] {
+  return parsePrefixList(raw)
+}
+
+export function deniedPrefixes(raw = process.env.SHAREPOINT_DENIED_PREFIXES): Prefix[] {
+  return parsePrefixList(raw)
+}
+
+const covers = (p: Prefix, origin: string, segs: string[]) => p.origin === origin && p.segs.length <= segs.length && p.segs.every((x, i) => x === segs[i])
+
+// Segment sınırında, normalize edilmiş eşleşme. Belirsiz biçimler (sorgu, //, .., /Forms/, kodlama hatası) reddedilir.
+export function isAllowedUrl(webUrl: string | undefined, allow: Prefix[] = allowedPrefixes(), deny: Prefix[] = deniedPrefixes()): boolean {
+  if (!webUrl) return false
   try {
-    path = decodeURIComponent(u.pathname)
+    const u = new URL(webUrl)
+    if (u.protocol !== 'https:' || u.search || u.hash || u.username || u.password || u.port) return false
+    const path = decodeURIComponent(u.pathname)
+    if (path.includes('//') || path.includes('\\')) return false
+    const segs = path.split('/').filter(Boolean).map(norm)
+    if (segs.some((x) => x === '.' || x === '..' || x === 'forms')) return false
+    const origin = u.origin.toLowerCase()
+    if (deny.some((d) => covers(d, origin, segs))) return false
+    return allow.some((a) => covers(a, origin, segs))
   } catch {
     return false
   }
-  // Nokta segmentleri ve ters eğik çizgi: önek atlatma (../) girişimi
-  if (path.includes('\\') || path.split('/').some((seg) => seg === '.' || seg === '..')) return false
-  const norm = u.origin.toLowerCase() + path
-  const lower = norm.toLowerCase()
-  // Engellenen klasörler her zaman izinlilerin önüne geçer
-  if (denied.some((d) => lower.startsWith(d.toLowerCase()))) return false
-  return prefixes.some((p) => lower.startsWith(p.toLowerCase()))
 }
 
 function ctx() {
   const owner = process.env.SHAREPOINT_OWNER_EMAIL?.trim().toLowerCase()
   const prefixes = allowedPrefixes()
+  const denied = deniedPrefixes()
   if (!owner || prefixes.length === 0) throw new SharePointError('SharePoint erişimi yapılandırılmamış')
-  return { owner, prefixes }
+  return { owner, prefixes, denied }
 }
 
 async function graph(owner: string, path: string, init?: RequestInit) {
@@ -76,7 +93,7 @@ async function graph(owner: string, path: string, init?: RequestInit) {
 const stripTags = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
 
 export async function searchSharePoint(query: string, limit = 10) {
-  const { owner, prefixes } = ctx()
+  const { owner, prefixes, denied } = ctx()
   const res = await graph(owner, '/search/query', {
     method: 'POST',
     body: JSON.stringify({
@@ -87,7 +104,7 @@ export async function searchSharePoint(query: string, limit = 10) {
   const json = (await res.json()) as { value?: { hitsContainers?: { hits?: { summary?: string; resource?: Res }[] }[] }[] }
   const hits = json.value?.[0]?.hitsContainers?.[0]?.hits ?? []
   return hits
-    .filter((h) => isAllowedUrl(h.resource?.webUrl, prefixes))
+    .filter((h) => isAllowedUrl(h.resource?.webUrl, prefixes, denied))
     .slice(0, Math.min(limit, 20))
     .map((h) => ({
       ad: String(h.resource?.name ?? ''),
@@ -101,12 +118,12 @@ export async function searchSharePoint(query: string, limit = 10) {
 }
 
 export async function readSharePointItem(driveId: string, itemId: string) {
-  const { owner, prefixes } = ctx()
+  const { owner, prefixes, denied } = ctx()
   if (!ID_RE.test(driveId) || !ID_RE.test(itemId)) throw new SharePointError('Geçersiz kimlik')
   const meta = (await (await graph(owner, `/drives/${driveId}/items/${itemId}?$select=name,size,webUrl,file,lastModifiedDateTime`)).json()) as {
     name?: string; size?: number; webUrl?: string; lastModifiedDateTime?: string; file?: { mimeType?: string }
   }
-  if (!isAllowedUrl(meta.webUrl, prefixes)) throw new SharePointError('Bu dosya izinli klasörlerde değil')
+  if (!isAllowedUrl(meta.webUrl, prefixes, denied)) throw new SharePointError('Bu dosya izinli klasörlerde değil')
   const base = { ad: meta.name, bağlantı: meta.webUrl, değişiklik: String(meta.lastModifiedDateTime ?? '').slice(0, 10), boyut: meta.size }
   const mime = String(meta.file?.mimeType ?? '')
   const isText = /^text\//.test(mime) || /(json|csv|xml)$/.test(mime)
