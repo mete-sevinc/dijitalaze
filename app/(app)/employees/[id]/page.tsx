@@ -165,14 +165,14 @@ export default function EmployeeDetailPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-slate-500">Yükleniyor...</div>
-  if (!employee) return <div className="p-8 text-red-500">Çalışan bulunamadı</div>
+  if (loading) return <div className="p-4 md:p-8 text-slate-500">Yükleniyor...</div>
+  if (!employee) return <div className="p-4 md:p-8 text-red-500">Çalışan bulunamadı</div>
 
   const permissions: string[] = employee.permissions ? JSON.parse(employee.permissions) : []
   const tools: string[] = employee.tools ? JSON.parse(employee.tools) : []
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -297,7 +297,7 @@ export default function EmployeeDetailPage() {
           {employee.assignedTasks.length === 0 ? (
             <div className="text-center py-12 text-slate-400">Atanmış görev yok</div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-100 border-b">
                   <tr>

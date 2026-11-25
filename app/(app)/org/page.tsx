@@ -68,7 +68,7 @@ export default function OrgPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Organizasyon</h1>
         <p className="text-slate-600 mt-2">Kim kime bağlı: yöneticiyi buradan ata, çalışanlar iş birliği düzenini buna göre kurar</p>
@@ -77,7 +77,7 @@ export default function OrgPage() {
       {loading ? (
         <div className="text-slate-500">Yükleniyor...</div>
       ) : tree.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-slate-500">Henüz çalışan yok.</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-8 text-center text-slate-500">Henüz çalışan yok.</div>
       ) : (
         <ul className="space-y-3">{tree.map(renderNode)}</ul>
       )}

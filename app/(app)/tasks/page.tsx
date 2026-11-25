@@ -115,7 +115,7 @@ export default function TasksPage() {
   const blocked = tasks.filter((t) => t.status === 'BLOCKED' && t.result)
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Görevler</h1>
         <p className="text-slate-600 mt-2">Personele iş ver, sonuçları incele. Onayların ve düzeltmelerin personelin hafızasına işlenir.</p>
@@ -218,7 +218,7 @@ export default function TasksPage() {
             <button onClick={() => { setStatusFilter(null); window.history.replaceState(null, '', '/tasks') }} className="text-slate-600 underline">Filtreyi kaldır</button>
           </div>
         )}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-100 border-b">
               <tr>

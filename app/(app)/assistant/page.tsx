@@ -163,7 +163,7 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <section className="lg:col-span-2 relative bg-white border border-slate-200 rounded h-[70vh] lg:h-auto lg:min-h-[32rem]">
       <div className="flex flex-col h-full min-h-0 lg:absolute lg:inset-0">
         <h1 className="px-6 py-4 border-b border-slate-200 text-2xl font-bold text-slate-900">Kişisel Asistan</h1>

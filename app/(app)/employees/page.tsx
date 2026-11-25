@@ -58,7 +58,7 @@ export default function EmployeesPage() {
   const filtered = employees.filter((e) => filter === 'all' || e.status === filter)
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-4xl font-bold text-slate-900">Çalışanlar</h1>

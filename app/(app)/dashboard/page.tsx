@@ -72,14 +72,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="text-center text-slate-500">Yükleniyor...</div>
       </div>
     )
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Kontrol Paneli</h1>

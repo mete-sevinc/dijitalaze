@@ -111,10 +111,10 @@ export default function MeetingDetailPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-slate-500">Yükleniyor...</div>
+  if (loading) return <div className="p-4 md:p-8 text-slate-500">Yükleniyor...</div>
   if (!meeting) {
     return (
-      <div className="p-8 space-y-3">
+      <div className="p-4 md:p-8 space-y-3">
         <p role="alert" className="text-red-700">{error ?? 'Toplantı bulunamadı'}</p>
         <Link href="/meetings" className="text-sm underline">← Toplantılar</Link>
       </div>
@@ -126,7 +126,7 @@ export default function MeetingDetailPage() {
   const decisionList = parseList(meeting.decisions)
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div>
         <Link href="/meetings" className="text-sm text-slate-600 underline">← Toplantılar</Link>
         <div className="flex items-center gap-3 mt-2">

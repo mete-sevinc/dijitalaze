@@ -49,10 +49,10 @@ export default function SettingsPage() {
     if (await run(() => deleteAllData(confirmText), 'Tüm veriler silindi')) setConfirmText('')
   }
 
-  if (loading) return <div className="p-8 text-slate-500">Yükleniyor...</div>
+  if (loading) return <div className="p-4 md:p-8 text-slate-500">Yükleniyor...</div>
 
   return (
-    <div className="p-8 space-y-6 max-w-3xl">
+    <div className="p-4 md:p-8 space-y-6 max-w-3xl">
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Ayarlar</h1>
         <p className="text-slate-600 mt-2">Sistem ve şirket ayarlarını yönet</p>

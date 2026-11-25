@@ -7,7 +7,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
     console.error('[ui-error]', error.digest ?? '', error.message)
   }, [error])
   return (
-    <div className="p-8 space-y-3">
+    <div className="p-4 md:p-8 space-y-3">
       <h1 className="text-2xl font-bold text-slate-900">Bir şeyler ters gitti</h1>
       <p className="text-slate-600">Sayfa yüklenemedi. Tekrar deneyebilirsin; sorun sürerse hata kodunu ilet.</p>
       {error.digest && <p className="text-xs text-slate-500">Hata kodu: {error.digest}</p>}

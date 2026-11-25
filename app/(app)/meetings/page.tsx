@@ -58,7 +58,7 @@ export default function MeetingsPage() {
   const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Toplantılar</h1>
         <p className="text-slate-600 mt-2">Toplantı planla, not al, karar ve aksiyonları takip et</p>
@@ -102,7 +102,7 @@ export default function MeetingsPage() {
       {loading ? (
         <div className="text-slate-500">Yükleniyor...</div>
       ) : meetings.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-slate-500">Henüz toplantı yok.</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-8 text-center text-slate-500">Henüz toplantı yok.</div>
       ) : (
         <ul className="space-y-3">
           {meetings.map((m) => (

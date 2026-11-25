@@ -80,7 +80,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div>
         <h1 className="text-4xl font-bold text-slate-900">Raporlar</h1>
         <p className="text-slate-600 mt-2">Çalışanların görev durumuna göre günlük, haftalık ve aylık raporlar</p>
@@ -132,7 +132,7 @@ export default function ReportsPage() {
       {loading ? (
         <div className="text-slate-500">Yükleniyor...</div>
       ) : reports.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-slate-500">Henüz rapor yok. Yukarıdan oluşturabilirsin.</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-8 text-center text-slate-500">Henüz rapor yok. Yukarıdan oluşturabilirsin.</div>
       ) : (
         <ul className="space-y-3">
           {reports.map((r) => (
