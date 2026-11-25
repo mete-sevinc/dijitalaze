@@ -5,7 +5,9 @@ const MAX_BYTES = 400_000
 const MAX_TEXT = 12_000
 const TIMEOUT_MS = 10_000
 const MAX_REDIRECTS = 3
-const GOV_DOMAINS = ['tubitak.gov.tr', 'kosgeb.gov.tr', 'sanayi.gov.tr', 'ticaret.gov.tr', 'sbb.gov.tr', 'resmigazete.gov.tr', 'mevzuat.gov.tr']
+const GOV_HOSTS = new Set(
+  ['tubitak.gov.tr', 'kosgeb.gov.tr', 'sanayi.gov.tr', 'ticaret.gov.tr', 'sbb.gov.tr', 'resmigazete.gov.tr', 'mevzuat.gov.tr'].flatMap((d) => [d, `www.${d}`])
+)
 const YOUTUBE_HANDLE_TABS = new Set(['videos', 'featured', 'streams', 'playlists', 'about'])
 const YOUTUBE_CHANNEL_ID = 'UCK5wBNiFjJPQzQ9QfErGxHw'
 
@@ -40,7 +42,13 @@ export function parseAllowedUrl(raw: string): URL {
     if (seg.length === 1 && seg[0] === 'azeotomasyon' && [...u.searchParams.keys()].length === 0) return u
     throw new WebReadError('Instagram için yalnız @azeotomasyon profil sayfası')
   }
-  if (GOV_DOMAINS.some((d) => h === d || h === `www.${d}` || h.endsWith(`.${d}`))) return u
+  if (GOV_HOSTS.has(h)) {
+    // Veri sızdırma kanalını kapat: sorgu/parça atılır, yol derinliği sınırlı
+    if (seg.length > 8 || u.pathname.length > 200) throw new WebReadError('Yol çok uzun')
+    u.search = ''
+    u.hash = ''
+    return u
+  }
   throw new WebReadError('Bu alan adı izinli değil (azeotomasyon.com, YouTube/Instagram @azeotomasyon, TÜBİTAK/KOSGEB/Sanayi/Ticaret/SBB/Resmî Gazete/Mevzuat)')
 }
 

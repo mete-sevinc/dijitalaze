@@ -25,6 +25,7 @@ describe('web_read URL izin listesi', () => {
     'https://www.youtube.com/@azeotomasyon/%2e%2e/x',
     'https://www.youtube.com/@azeotomasyon/baska',
     'https://tubitak.gov.tr.evil.com/',
+    'https://evil.tubitak.gov.tr/',
     'https://nottubitak.gov.tr/',
     'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     'https://www.youtube.com/feeds/videos.xml?channel_id=UCK5wBNiFjJPQzQ9QfErGxHw&channel_id=UCbaskasi',
@@ -58,5 +59,11 @@ describe('extractPage', () => {
   it('RSS girdilerini çıkarır', () => {
     const r = extractPage('<?xml version="1.0"?><feed><entry><title>Video 1</title><link rel="alternate" href="https://www.youtube.com/watch?v=x"/><published>2026-01-01</published></entry></feed>', 'application/atom+xml', base) as { kayıtlar: { başlık: string }[] }
     expect(r.kayıtlar[0].başlık).toBe('Video 1')
+  })
+})
+
+describe('gov alan adları', () => {
+  it('sorgu ve parçayı atar', () => {
+    expect(parseAllowedUrl('https://www.tubitak.gov.tr/tr/destekler?x=secret#h').toString()).toBe('https://www.tubitak.gov.tr/tr/destekler')
   })
 })
